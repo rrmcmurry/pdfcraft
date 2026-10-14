@@ -353,14 +353,21 @@ impl FilterResult<'_> {
     }
 }
 
+/// Accept report exporters' horizontal padding, but require one line ending and
+/// preserve every payload byte after it, including leading spaces or tabs.
+fn stream_data_start(r: &mut Reader<'_>) -> Option<()> {
+    r.forward_tag(b"stream")?;
+    r.forward_while(|byte| matches!(byte, b' ' | b'\t'));
+    r.forward_tag(b"\r\n")
+        .or_else(|| r.forward_tag(b"\n"))
+        .or_else(|| r.forward_tag(b"\r"))
+}
+
 fn parse_proper<'a>(r: &mut Reader<'a>, dict: &Dict<'a>) -> Option<Stream<'a>> {
     let length = dict.get::<u32>(LENGTH)?;
 
     r.skip_white_spaces_and_comments();
-    r.forward_tag(b"stream")?;
-    r.forward_tag(b"\n")
-        .or_else(|| r.forward_tag(b"\r\n"))
-        .or_else(|| r.forward_tag(b"\r"))?;
+    stream_data_start(r)?;
     let data = r.read_bytes(length as usize)?;
     r.skip_white_spaces();
     r.forward_tag(b"endstream")?;
@@ -375,12 +382,7 @@ fn parse_fallback<'a>(r: &mut Reader<'a>, dict: &Dict<'a>) -> Option<Stream<'a>>
     // writes checkboxes). The widget then had no form to draw, so the box disappeared.
     // A wrong `/Length` still recovers, because that keyword sits directly after the dict.
     r.skip_white_spaces_and_comments();
-    r.forward_tag(b"stream")?;
-
-    r.forward_tag(b"\n")
-        .or_else(|| r.forward_tag(b"\r\n"))
-        // Technically not allowed, but no reason to not try it.
-        .or_else(|| r.forward_tag(b"\r"))?;
+    stream_data_start(r)?;
 
     let tail = r.tail()?;
     let endstream_offset = find_needle(tail, b"endstream")?;
@@ -455,6 +457,27 @@ mod tests {
             .unwrap();
 
         assert_eq!(stream.data, b"abcdefghij");
+    }
+
+    #[test]
+    fn report_exporter_whitespace_before_stream_eol_preserves_payload() {
+        for length in [10, 999] {
+            for ending in ["\n", "\r\n", "\r", " \r\n", "\t \n"] {
+                // Leading payload whitespace belongs to the bytes, not the header.
+                let data = format!("<< /Length {length} >> stream{ending} \tabcdefgh\nendstream");
+                let mut reader = Reader::new(data.as_bytes());
+                let stream = reader.read_with_context::<Stream<'_>>(&ReaderContext::dummy()).unwrap();
+                assert_eq!(stream.data, b" \tabcdefgh", "length={length}, ending={ending:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn whitespace_after_stream_keyword_still_requires_a_line_break() {
+        for data in [b"<< /Length 5 >> stream hello\nendstream".as_slice(), b"<< /Length 5 >> stream\thello\nendstream"] {
+            let mut reader = Reader::new(data);
+            assert!(reader.read_with_context::<Stream<'_>>(&ReaderContext::dummy()).is_none());
+        }
     }
 
     /// A dictionary followed by some other object's stream is not itself a stream.

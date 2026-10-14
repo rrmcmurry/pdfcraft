@@ -780,6 +780,17 @@ impl PdfCraftApp {
     }
 
     pub(crate) fn open_created(&mut self, name: &str, bytes: Arc<Vec<u8>>, message: &str) {
+        match self.route_created_window(name, &bytes) {
+            Ok(true) => {
+                self.notify_tr(message);
+                return;
+            }
+            Ok(false) => {}
+            Err(error) => {
+                self.notify_fmt("Couldn't open the result: {e}", &[("e", &error)]);
+                return;
+            }
+        }
         match self.session.open_new(name, bytes) {
             Ok(id) => {
                 // The reading-colours preference is app-wide: the newly created document starts with it.

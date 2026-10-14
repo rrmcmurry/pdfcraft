@@ -326,6 +326,15 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
     crate::appearance::preferences_section(ui, app, t);
     ui.add_space(8.0);
     ui.label(egui::RichText::new(tl!("Documents and view")).font(theme::semibold(13.0)));
+    #[cfg(not(target_arch = "wasm32"))]
+    if app.document_window_source.is_some() {
+        ui.add(widgets::checkbox(&mut app.open_documents_in_tabs, "Open documents as tabs in the same window"));
+        ui.label(
+            egui::RichText::new("When off, newly opened PDFs use separate windows. Existing tabs stay accessible until closed.")
+                .small()
+                .color(t.text_muted),
+        );
+    }
     ui.horizontal(|ui| {
         ui.label(tl!("Default workspace mode"));
         for (mode, label) in [

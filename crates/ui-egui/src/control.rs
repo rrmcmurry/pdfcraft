@@ -715,6 +715,7 @@ impl Host for crate::PdfCraftApp {
             "home": self.active.is_none(),
             "mode": format!("{:?}", self.mode),
             "default_mode": self.default_mode,
+            "open_documents_in_tabs": self.open_documents_in_tabs,
             "left_panel": if self.left_open { json!(format!("{:?}", self.left)) } else { Value::Null },
             "tools_side": if self.docking.tools_on_right() { "right" } else { "left" },
             "right_panel": self.right.map(|r| format!("{r:?}")),
@@ -756,7 +757,9 @@ impl Host for crate::PdfCraftApp {
     fn open(&mut self, path: &str) -> Reply {
         let before = self.views.len();
         self.open_path(path);
-        if self.views.len() > before || self.password_prompt.is_some() {
+        if self.last_window_open.as_deref() == Some(path) {
+            Ok(json!({ "accepted": path, "new_window": true }))
+        } else if self.views.len() > before || self.password_prompt.is_some() {
             Ok(json!({ "opened": path, "password_prompt": self.password_prompt.is_some() }))
         } else if self.pending_opens.iter().any(|pending| pending.path.as_deref() == Some(path)) {
             Ok(json!({ "accepted": path, "pending": true }))

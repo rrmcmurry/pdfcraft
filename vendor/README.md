@@ -47,3 +47,7 @@ black-point normalization is unchanged. `lab_bradford_tests` checks independent
 D50/equal-energy neutral and chromatic oracles, D65 identity, and direct/Indexed
 consistency (including an asymmetric chromatic Range), and zero/overflowing
 cone-response fallback.
+
+### McMurryPDF report-exporter stream headers
+
+The vendored hayro-syntax stream parser accepts spaces and tabs between the stream keyword and its required line ending. Both length-based parsing and wrong-length recovery use the same boundary reader. It consumes exactly one line ending and preserves leading payload whitespace. Tests cover LF/CRLF/CR, padded headers, preserved payload bytes, missing line-break rejection, and retaining the existing protection against mistaking a later object's stream for a dictionary's content. No report content or customer documents are included in source.

@@ -5,6 +5,7 @@
 //! Everything here is presentation: documents, rendering and the tool catalogue live in
 //! `pdfcraft-engine`.
 
+#![recursion_limit = "256"]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 /// Translate an English UI string into the current language (see [`i18n`]).
@@ -386,6 +387,11 @@ pub enum OsEvent {
 /// Returns the [`OsEvent`]s that arrived since it was last called (set by the desktop app).
 pub type OsEventsFn = Box<dyn FnMut() -> Vec<OsEvent>>;
 
+/// Launch an independent desktop window for a file and optional selected tool.
+pub type DocumentWindowSource = Box<dyn Fn(&str, Option<&str>) -> Result<(), String>>;
+/// Launch a new unsaved document in an independent desktop window.
+pub type CreatedDocumentWindowSource = Box<dyn Fn(&str, &[u8]) -> Result<(), String>>;
+
 /// Hands a saved PDF to the page embedding PdfCraft (web): `(name, bytes, save_as)`. `save_as`
 /// is `true` for Save As. Set by the web app when a host page (such as a Nextcloud app) asked
 /// for saves; without it the browser downloads the file.
@@ -551,6 +557,13 @@ pub struct PdfCraftApp {
     pub recent: Vec<RecentFile>,
     /// Preferences: reopen the files that were open when PdfCraft last closed (#442).
     pub reopen_last_session: bool,
+    /// Open subsequent file-backed documents as tabs, rather than independent desktop windows.
+    pub open_documents_in_tabs: bool,
+    /// Desktop-only window launcher. The browser and headless tests leave it unset.
+    pub document_window_source: Option<DocumentWindowSource>,
+    pub created_document_window_source: Option<CreatedDocumentWindowSource>,
+    /// The last file successfully dispatched to a separate desktop window (agent observability).
+    pub last_window_open: Option<String>,
     /// The files open when PdfCraft last closed, read from the settings for
     /// [`PdfCraftApp::reopen_last_files`].
     pub last_session: last_session::LastSession,
@@ -905,6 +918,10 @@ impl PdfCraftApp {
             all_tools_expanded: false,
             recent: Vec::new(),
             reopen_last_session: false,
+            open_documents_in_tabs: true,
+            document_window_source: None,
+            created_document_window_source: None,
+            last_window_open: None,
             last_session: Default::default(),
             quit_session: None,
             reload_changed_files: true,
@@ -1094,6 +1111,8 @@ impl PdfCraftApp {
 
     /// Open a document and make it the active tab. Encrypted files raise the password prompt.
     pub fn open_bytes(&mut self, name: &str, path: Option<String>, bytes: Vec<u8>) -> Result<(), String> {
+        // Recovery and internal revision views must retain their metadata in this session.
+        // Only explicit create/import operations transfer a new, unsaved document to a window.
         self.startup_superseded = true;
         self.open_bytes_with_focus(name, path, bytes, true)
     }
@@ -1696,6 +1715,17 @@ impl PdfCraftApp {
     /// Keep a chosen tool with its file until preparation and any password entry finish.
     #[cfg(not(target_arch = "wasm32"))]
     fn open_path_then(&mut self, path: &str, then: Option<&'static str>) {
+        self.last_window_open = None;
+        if !self.open_documents_in_tabs
+            && (!self.views.is_empty() || !self.pending_opens.is_empty() || self.password_prompt.is_some())
+            && let Some(launch) = &self.document_window_source
+        {
+            match launch(path, then) {
+                Ok(()) => self.last_window_open = Some(path.to_string()),
+                Err(error) => self.notify_fmt("Couldn't open {name}: {e}", &[("name", path), ("e", &error)]),
+            }
+            return;
+        }
         let name = std::path::Path::new(path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.to_string());
         // Taken before reading: a build that rewrites the file meanwhile still counts as a change.
         let stamp = file_watch::Stamp::at(path);
@@ -2102,6 +2132,7 @@ impl PdfCraftApp {
             "docking_right": self.right,
             "recent": self.recent,
             "reopen_last_session": self.reopen_last_session,
+            "open_documents_in_tabs": self.open_documents_in_tabs,
             // Kept only while the preference is on.
             "last_session": self.reopen_last_session.then(|| self.session_to_save()),
             "reload_changed_files": self.reload_changed_files,
@@ -2186,6 +2217,9 @@ impl PdfCraftApp {
         }
         if let Some(on) = v["reopen_last_session"].as_bool() {
             self.reopen_last_session = on;
+        }
+        if let Some(on) = v["open_documents_in_tabs"].as_bool() {
+            self.open_documents_in_tabs = on;
         }
         self.last_session = last_session::LastSession::from_json(&v["last_session"]);
         if let Some(on) = v["system_title_bar"].as_bool() {
@@ -2337,6 +2371,13 @@ impl PdfCraftApp {
                     _ => return Err("theme must be light, dark, or system".into()),
                 };
                 self.set_theme_preference(preference);
+            }
+            ("open-tabs", _) => {
+                self.open_documents_in_tabs = match value {
+                    "on" => true,
+                    "off" => false,
+                    _ => return Err("open-tabs must be on or off".into()),
+                };
             }
             ("scroll_speed", _) => {
                 self.scroll_speed = scroll_speed::ScrollSpeed::parse(value).ok_or("scroll_speed must be slow, normal, or fast")?;
@@ -2933,7 +2974,7 @@ impl eframe::App for PdfCraftApp {
             .and_then(|i| self.session.get(self.views[i].id))
             .map(|d| d.display_name())
             .or_else(|| self.combine_showing().then(|| tl!("Combine files").to_owned()))
-            .map_or_else(|| "PdfCraft".to_owned(), |name| format!("{name} — PdfCraft"));
+            .map_or_else(|| "McMurryPDF".to_owned(), |name| format!("{name} — McMurryPDF"));
         if title != self.window_title {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
             self.window_title = title;

@@ -1,14 +1,9 @@
-<p align="center">
-  <a href="https://getartcraft.com/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/brand/artcraft-logo-white.svg">
-      <img alt="ArtCraft" src="docs/brand/artcraft-logo.svg" width="200">
-    </picture>
-  </a>
-</p>
+<p align="center"><img alt="McMurryPDF" src="assets/mcmurry/mcmurrypdf.png" width="160"></p>
+
+McMurryPDF is the McMurry Software office fork of [PdfCraft](https://github.com/storytold/pdfcraft). See [office build notes](docs/mcmurrypdf.md) for branding and separate document windows, and the [development handoff](docs/MCMURRYPDF_HANDOFF.md) for installer/update plans and validation. The PDF application remains Rust; the independent Windows thumbnail integration uses a small native COM adapter around its CLI renderer. Upstream project documentation follows.
 
 
-<h1 align="center">PdfCraft</h1>
+<h1 align="center">McMurryPDF</h1>
 
 <p align="center">
   <b>The PDF workbench; an open-source, clean-room reimplementation of Adobe Acrobat, rebuilt in pure Rust.</b><br>
@@ -559,7 +554,7 @@ Forks and modified versions must remove them.
 <sub>Adobe, Photoshop, Illustrator, Premiere Pro, Lightroom, Acrobat, After Effects and InDesign are trademarks or registered trademarks of Adobe Inc. in the United States and/or other countries. PdfCraft is an independent, open-source project and is not affiliated with, sponsored by or endorsed by Adobe Inc.; these names are used only to describe the workflows it is compatible with.</sub>
 
 <p align="center">
-  <a href="https://getartcraft.com/"><img alt="ArtCraft" src="docs/brand/artcraft-mark.svg" width="28"></a><br>
+  <img alt="McMurryPDF" src="assets/mcmurry/mcmurrypdf.png" width="28"><br>
   <sub>Made by the <a href="https://getartcraft.com/">ArtCraft</a> team and community.</sub>
 </p>
 

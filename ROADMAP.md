@@ -445,3 +445,9 @@ Newest first: the date, what moved, and the new overall estimate.
 | 2026-10-05 | major | Honest assessment and "Where we're lacking" added |
 
 - **2026-10-12 (M8):** Redaction cleans indirect and form structure references, preserving surviving form tags.
+
+- 2026-10-14: McMurryPDF office fork adds original ampersand branding and a persisted separate-document-window preference. Five focused regression tests passed; native Windows build and sandbox verification passed; stable Desktop shortcut staged and native app launched. Upstream readiness estimates unchanged.
+
+- 2026-10-14: McMurryPDF report compatibility: stream parsing accepts horizontal padding before LF/CRLF/CR, preserving payload bytes and requiring a line ending. Regression failed before fix and passed afterward. Windows rebuild and real-report rendering verification pending; no customer documents added to source.
+
+2026-10-14 verification: report-stream parser release build completed; all three report pages render, 216 available parser tests pass, and the desktop shortcut points at the versioned reports build.

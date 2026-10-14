@@ -27,6 +27,10 @@ const TAB_HEIGHT: f32 = 30.0;
 const STRIP_BUTTON: f32 = 28.0;
 
 pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
+    // Retain access to pre-existing tabs and Combine Files when switching an open session.
+    if !app.open_documents_in_tabs && app.views.len() <= 1 && !app.combine_tab.open && !app.integrated_titlebar && !app.draws_window_frame() {
+        return;
+    }
     let t = Tokens::get(ui.ctx());
     // macOS: the strip is the 28 pt title bar, so the traffic lights are centred in it; tabs and
     // buttons shrink to keep a margin above and below.
@@ -66,8 +70,8 @@ pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                     app.active = None;
                     app.combine_tab.focused = false;
                 }
-                // Keep the two icon buttons, Discord's text/padding and three gaps outside the scrolling tabs.
-                let controls_width = ui.fonts_mut(|f| f.layout_no_wrap("Discord".into(), theme::medium(13.0), t.text).size().x)
+                // Keep the two icon buttons, Support's text/padding and three gaps outside the scrolling tabs.
+                let controls_width = ui.fonts_mut(|f| f.layout_no_wrap("Support".into(), theme::medium(13.0), t.text).size().x)
                     + 2.0 * button
                     + 50.0
                     + window_controls::width(&controls.right);
@@ -290,7 +294,7 @@ pub fn tab_strip(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                         app.dialog = Some(Dialog::Shortcuts);
                     }
                     // One click to the community, from anywhere in the app.
-                    if widgets::ghost_button_sized(ui, "messages-square", "Discord", tab_h).on_hover_text(pdfcraft_engine::links::DISCORD).clicked() {
+                    if widgets::ghost_button_sized(ui, "messages-square", "Support", tab_h).on_hover_text(pdfcraft_engine::links::DISCORD).clicked() {
                         app.execute("help.discord");
                     }
                 });
