@@ -10,6 +10,8 @@ The browser build keeps its existing tab behavior. The desktop agent interface e
 
 ## Identity and updates
 
+Signed Windows installer and explicit in-app updates: see [Windows distribution](MCMURRYPDF_RELEASES.md) for installation, the separate Explorer thumbnail component, release builds and remaining pilot limitations. Installed packages retain a stable `current\McMurryPDF.exe` path. The earlier office prototype remains a separate deployment until its shortcut/default is migrated deliberately.
+
 The Windows product and publisher are McMurryPDF / McMurry Software. Settings and recovery use McMurryPDF folders; portable mode uses McMurryPDFData. The fork does not migrate or modify upstream PdfCraft/PrintCraft settings. Help and manual update checks target https://github.com/rrmcmurry/pdfcraft. No automatic download/install or default agent listener is introduced. Rust package and internal CLI names stay unchanged to keep upstream merges manageable; the office staging folder exposes McMurryPDF.exe and McMurryPDF-cli.exe.
 
 ## Validation status

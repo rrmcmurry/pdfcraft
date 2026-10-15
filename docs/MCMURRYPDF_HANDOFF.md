@@ -1,8 +1,28 @@
-# McMurryPDF handoff — 2026-10-14
+# McMurryPDF handoff — 2026-10-15
 
 ## Resume here
 
-Design and implement a signed Windows installer and update workflow based on the owner's existing Ledger Velopack distribution. Target office, home and laptop use without depending on mapped drives. Start with packaging and a tested install/update/uninstall cycle, then stamps and annotation interoperability. No installer or automatic update feed has been published yet.
+Signed Windows packaging and the explicit update workflow are implemented and validated for 0.8.1, using Ledger's existing signing identity but a distinct McMurryPDF package ID and GitHub feed. See [release/install instructions](MCMURRYPDF_RELEASES.md). The testing release is `mcmurrypdf-v0.8.1-testing` on this fork. Next address stamps and annotation interoperability; the owner will test real large PDFs.
+
+## 2026-10-15 distribution implementation
+
+- Velopack 1.2.0 Windows lifecycle integrated before GUI initialization; checks/downloads explicit, no startup update request or auto-apply. GUI and CLI share a process lock to refuse applying while other windows/jobs run. Dirty documents block the requesting window's restart. Packages honor their installed update channel.
+- Per-user app installation with stable `current/McMurryPDF.exe`, supported PDF association registration and no UserChoice hash manipulation. Installer and user documents/settings have separate lifecycles. The office's current working executable, shortcut and default have not been replaced during development.
+- Signed machine-wide WiX 6 thumbnail MSI installs our COM adapter and CLI renderer under versioned Program Files paths. It keeps process isolation and supports independent upgrade/removal. An already loaded DLL uses the machine's current renderer path; Explorer is not terminated. First launch/update offers the component installer when needed.
+- Azure Artifact Signing through the existing account, publisher **Robert McMurry**, timestamped SHA-256 signatures. Metadata and credentials remain outside the repo. Packager checks the files inside the portable package and verifies the updater signature too. Pinned local .NET build tools, original logo, notices and third-party license texts included.
+- First internal probe installer and native thumbnail component installed successfully in an offline Windows Sandbox, with actual fresh Shell thumbnails and no Acrobat. Windows subsequently terminated that guest during the update attempt (0x80370106); this is recorded as a failed infrastructure attempt, not a successful update check. A fresh guest is used for the retry. Internal 0.8.0 probe artifacts must never be published.
+
+The sections below preserve the prior feature/security baseline; their packaging plan has now been implemented as described above.
+
+## Final distribution validation
+
+The fresh offline guest passed signed installation, stable application registration/default preservation, fresh thumbnails with Acrobat absent, rejection of a byte-corrupted update, successful 0.8.0 probe -> 0.8.1 update, preservation of the synthetic PDF and settings, the actual installed GUI's update dialog/control/screenshot, independent 0.8.0 -> 0.8.1 thumbnail MSI upgrade with fresh rendering, GUI uninstall, and separate thumbnail uninstall. Component removal removed its COM class while preserving the document. The first offline MSI installation took several minutes in Sandbox; subsequent tests completed. No client reports were exposed to this guest.
+
+The initial update harness used PowerShell `Start-Process -Wait`, which waited for the restarted GUI's descendants after the update had already succeeded. Corrected it to wait on the immediate process handle. Closing that empty test GUI let the original invocation complete all remaining assertions successfully. This was a harness wait issue, not a failed package application.
+
+Final source checks: six updater/portable UI tests passed; the real Windows shared-lock test passed (its negative control failed without the guard); scoped GUI/CLI/UI/platform Clippy with warnings denied, formatting, assets, layers, parity and all 31 eligible wasm crates passed. PowerShell syntax and native C++ `/W4 /WX` compilation passed. Packaging verified timestamped Robert McMurry signatures in the shipped files and a valid updater signature. The OSV refresh checked 735 registry packages, recording seven findings including the new build-time unmaintained `derivative` macro; see the release guide's limitations. No full workspace test or broad rollback claim is made.
+
+Keep internal probe 0.8.0 artifacts separate from `dist/mcmurry/release-testing`; only the actual 0.8.1 release goes to GitHub. The office installation/shortcut/default remain unchanged; install and migrate them deliberately when ready. No recurring automation was created.
 
 ## Completed and locally verified
 

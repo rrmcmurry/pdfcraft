@@ -5,6 +5,7 @@
 #include <thumbcache.h>
 #include <propsys.h>
 #include <shlwapi.h>
+#include <shlobj.h>
 #include <atomic>
 #include <algorithm>
 #include <fstream>
@@ -49,6 +50,13 @@ HRESULT render(IStream* stream, UINT cx, HBITMAP* result) {
     auto slash=dll.find_last_of(L"\\");
     if(slash==std::wstring::npos)return E_FAIL;
     std::wstring cli=dll.substr(0,slash)+L"\\McMurryPDF-cli.exe";
+    // A DLL can remain loaded after MSI upgrades its versioned folder.
+    DWORD rendererBytes=sizeof(path);
+    if(RegGetValueW(HKEY_LOCAL_MACHINE,L"Software\\McMurrySoftware\\McMurryPDF",L"ShellRendererPath",RRF_RT_REG_SZ,nullptr,path,&rendererBytes)==ERROR_SUCCESS) {
+        if(rendererBytes<sizeof(wchar_t) || rendererBytes>sizeof(path))return E_FAIL;
+        path[32767]=L'\0';
+        cli=path;
+    }
     DWORD tempLen=GetTempPathW(32768,path);
     if(!tempLen || tempLen>=32768)return E_FAIL;
     std::wstring temp(path,tempLen);
@@ -63,8 +71,11 @@ HRESULT render(IStream* stream, UINT cx, HBITMAP* result) {
             auto label=reinterpret_cast<TOKEN_MANDATORY_LABEL*>(info.data());
             DWORD count=*GetSidSubAuthorityCount(label->Label.Sid);
             if(count && *GetSidSubAuthority(label->Label.Sid,count-1)<SECURITY_MANDATORY_MEDIUM_RID) {
-                temp+=L"Low\\";
-                if(GetFileAttributesW(temp.c_str())==INVALID_FILE_ATTRIBUTES)return E_ACCESSDENIED;
+                PWSTR low=nullptr;
+                HRESULT folder=SHGetKnownFolderPath(FOLDERID_LocalAppDataLow,KF_FLAG_CREATE,nullptr,&low);
+                if(FAILED(folder) || !low)return E_ACCESSDENIED;
+                temp=std::wstring(low)+L"\\";
+                CoTaskMemFree(low);
             }
         }
     }

@@ -34,6 +34,8 @@ mod apple_events;
 mod compositor_gpu;
 mod decorations;
 mod document_windows;
+#[cfg(target_os = "windows")]
+mod installer;
 mod logging;
 #[cfg(target_os = "windows")]
 mod motion;
@@ -129,6 +131,12 @@ fn rejoin_split_paths(args: Vec<String>, exists: impl Fn(&str) -> bool) -> Vec<S
 }
 
 fn main() -> eframe::Result {
+    #[cfg(target_os = "windows")]
+    installer::startup();
+    #[cfg(target_os = "windows")]
+    if let Some(code) = installer::command_line() {
+        std::process::exit(code);
+    }
     // First, so the panic hook and every start-up warning are recorded (`logging`).
     let logger = logging::install();
     // Last-resort guard (AGENTS.md §4): commands, edits, opens and saves catch panics and report
@@ -368,6 +376,8 @@ fn app_creator<'a>(
             app.motion.source = Some(motion::source());
         }
         app.update_source = Some(std::sync::Arc::new(updates::latest_release));
+        #[cfg(target_os = "windows")]
+        installer::connect(&mut app);
         app.printer_source = Some(pdfcraft_ui_egui::system_printers());
         app.os_key_store_ids = cfg!(any(target_os = "macos", target_os = "windows"));
         #[cfg(target_os = "macos")]

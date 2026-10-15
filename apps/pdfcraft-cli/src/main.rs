@@ -74,6 +74,14 @@ help and feedback: https://discord.gg/artcraft"
 );
 
 fn main() -> ExitCode {
+    #[cfg(windows)]
+    let _update_lease = match pdfcraft_platform::update_session::SessionLease::installed() {
+        Ok(lease) => lease,
+        Err(error) => {
+            let _ = std::io::Write::write_fmt(&mut std::io::stderr(), format_args!("McMurryPDF update coordination: {error}\n"));
+            return ExitCode::FAILURE;
+        }
+    };
     let args: Vec<String> = std::env::args().skip(1).collect();
     // `<command> --help` too; only right after the command, so a later `-h` (a value) still reaches it.
     let command = match args.get(1).map(String::as_str) {
