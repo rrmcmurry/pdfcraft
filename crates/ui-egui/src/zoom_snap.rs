@@ -49,6 +49,19 @@ impl PdfCraftApp {
     pub(crate) fn finish_marquee(&mut self, index: usize, done: Marquee) {
         let (page, rect, view_rect) = done;
         match self.quick_tool {
+            QuickTool::CaptureInitials => {
+                let Some(id) = self.views.get(index).map(|v| v.id) else { return };
+                match self.session.capture_initials(id, page, view_rect.map(f64::from)) {
+                    Ok(image) => {
+                        self.signature_draft =
+                            crate::fill_sign::SigDraft { initials: true, signoff: true, image_mode: true, image: Some(image), ..Default::default() };
+                        self.quick_tool = QuickTool::Select;
+                        self.dialog = Some(crate::Dialog::Signature);
+                        self.toast = None;
+                    }
+                    Err(error) => self.notify(&error),
+                }
+            }
             QuickTool::MarqueeZoom => {
                 let view = &mut self.views[index];
                 if rect.width() < 6.0 || rect.height() < 6.0 {

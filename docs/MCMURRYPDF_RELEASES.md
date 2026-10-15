@@ -2,6 +2,8 @@
 
 ## Install on another computer
 
+Version 0.8.2 adds persistent workpaper marking (typed references, dot/check shortcuts, font/size/color controls), personal initials with a date fixed when placed, capture of initials from a PDF page, and tray visibility controlled by the user. Marks and sign-offs remain portable PDF comments. Each user supplies their own initials; no personal signature is bundled in the installer.
+
 Download **McMurrySoftware.McMurryPDF-testing-Setup.exe** from the McMurryPDF testing release in [this fork's releases](https://github.com/rrmcmurry/pdfcraft/releases). This is an x64 Windows pilot build, not a claim of Acrobat annotation parity. Check Properties > Digital Signatures: the publisher is **Robert McMurry** (McMurry Software's signing identity). Do not use the old unsigned prototype or the internal update-probe package.
 
 Setup installs per user under `%LOCALAPPDATA%\McMurrySoftware.McMurryPDF`. The launch path stays `current\McMurryPDF.exe` across updates. No office share or mapped drive is needed. The native app does not require .NET; Setup installs the Microsoft Visual C++ 2022 x64 runtime if missing, which may require internet access and administrator approval.

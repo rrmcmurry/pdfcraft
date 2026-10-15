@@ -99,6 +99,8 @@ pub static TOOL_GROUPS: &[ToolGroup] = &[
                 item("Date", "clock-3", "sign.fill.date", Ready),
                 item("Signature", "signature", "sign.fill.signature", Ready),
                 item("Initials", "signature", "sign.fill.initials", Ready),
+                item("Sign off (initials + date)", "clock-3", "sign.off", Ready),
+                item("Capture initials from page", "crop", "sign.off.capture", Ready),
                 item("Change signature", "signature", "sign.fill.signature.change", Ready),
                 item("Change initials", "signature", "sign.fill.initials.change", Ready),
             ],
@@ -360,7 +362,10 @@ pub static TOOL_GROUPS: &[ToolGroup] = &[
         hue: PURPLE,
         badge: None,
         availability: Ready,
-        sections: &[ToolSection { title: "Stamps", items: &[item("Stamp palette", "stamp", "comment.stamp", Ready)] }],
+        sections: &[ToolSection {
+            title: "Stamps",
+            items: &[item("Mark workpaper", "stamp", "comment.mark", Ready), item("Stamp palette", "stamp", "comment.stamp", Ready)],
+        }],
     },
     ToolGroup {
         id: "certificate",

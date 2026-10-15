@@ -204,7 +204,7 @@ impl Automation {
 
     /// `{"image": path}` (PNG or JPEG), `{"text": name}` (typed in the script font) or
     /// `{"strokes": [[[x, y], …], …]}` (y up; the drawing pad is 1 wide).
-    fn signature_graphic(&self, g: &Value) -> Result<sign::Graphic> {
+    pub(crate) fn signature_graphic(&self, g: &Value) -> Result<sign::Graphic> {
         let kinds = "graphic must be an object with exactly one of image (a PNG or JPEG path), text, or strokes";
         let Some(o) = g.as_object().filter(|o| o.len() == 1) else { return Err(bad(kinds)) };
         if let Some(path) = o.get("image") {

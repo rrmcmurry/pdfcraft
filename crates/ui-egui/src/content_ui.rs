@@ -731,7 +731,6 @@ impl crate::PdfCraftApp {
         if self.apply_edit(Edit::AddImage { page, rect: None, name, bytes: std::sync::Arc::new(bytes) }) {
             self.views[i].content.select_added = Some((page, before));
             self.left = crate::LeftPanel::Tool("edit");
-            self.left_open = true;
         }
     }
 }

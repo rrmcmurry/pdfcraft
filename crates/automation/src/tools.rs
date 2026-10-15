@@ -361,6 +361,20 @@ pub fn tools() -> Vec<ToolDef> {
             )),
         t("form_set_image", "Set an image field's picture", "Show an image file (PNG, JPEG, TIFF, GIF or BMP) in an image field or button, scaled to fit and centred (what clicking an image field does). On an XFA form the picture is kept in its data too (base64, as Designer saves it) and the form shows it from there. Undoable.")
             .with(schema(json!({ "doc": doc(), "field": { "type": "string" }, "path": { "type": "string" } }), &["doc", "field", "path"])),
+        t("mark_add", "Mark workpaper", "Place an undoable workpaper mark, centred at at in displayed-page points. A lone . makes a dot; / makes a checkmark; other text is printed as typed. Stored as a portable Stamp comment with its own appearance, author and date. No stamp library or external file required.")
+            .cmd("comment.mark")
+            .with(schema(json!({
+                "doc": doc(), "page": {"type":"integer", "minimum":1},
+                "at": point(), "text": {"type":"string", "minLength":1, "maxLength":32},
+                "font_size": {"type":"number", "minimum":6, "maximum":36},
+                "font": {"type":"string", "enum":pdfcraft_engine::work_marks::FONTS},
+                "color": color(), "author": {"type":"string"}
+            }), &["doc", "page", "at", "text"])),
+        t(
+            "signoff_add", "Sign off", "Place personal initials and today's local date (m/d/yy) as one portable Stamp comment. The date is fixed on placement. graphic contains image (local PNG/JPEG path), text, or strokes. Undoable.",
+        ).cmd("sign.off").with(schema(json!({"doc":doc(),"page":{"type":"integer","minimum":1},"at":point(),"graphic":{"type":"object"},"author":{"type":"string"}}), &["doc","page","at","graphic"])),
+        t("signoff_capture", "Capture initials", "Capture a page rectangle as transparent initials. Copies only the selected region, removes paper, and saves a PNG to path. Requires PDF copy permission; respects --root.")
+            .cmd("sign.off.capture").with(schema(json!({"doc":doc(),"page":{"type":"integer","minimum":1},"rect":{"type":"array","items":{"type":"number"},"minItems":4,"maxItems":4},"path":{"type":"string"}}), &["doc","page","rect","path"])),
         t(
             "form_set_props",
             "Field properties",

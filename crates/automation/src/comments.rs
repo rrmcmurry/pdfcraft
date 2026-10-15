@@ -115,6 +115,28 @@ impl Args<'_> {
 }
 
 impl Automation {
+    pub(crate) fn signoff_add(&mut self, a: &Args) -> Result<Value> {
+        let page = self.page(a)?;
+        let info = self.doc(a)?.info.pages[page].clone();
+        let source = a.get("graphic").ok_or_else(|| ToolError::InvalidArgs("Pass an initials graphic (image, text or strokes).".into()))?;
+        let graphic = self.signature_graphic(source)?;
+        let date = self.session.today_text_for_pdf(Some(pdfcraft_engine::signoff::DATE_FORMAT), None).map_err(ToolError::InvalidArgs)?;
+        let stamp = pdfcraft_engine::signoff::build(&graphic, &date).map_err(ToolError::InvalidArgs)?;
+        let edit = stamp
+            .place(page, &info, a.need::<2>("at", "the centre of a sign-off")?, a.opt_str("author")?.unwrap_or(DEFAULT_AUTHOR))
+            .map_err(ToolError::InvalidArgs)?;
+        self.apply(a, edit)
+    }
+
+    pub(crate) fn signoff_capture(&mut self, a: &Args) -> Result<Value> {
+        let page = self.page(a)?;
+        let id = self.doc(a)?.id;
+        let image = self.session.capture_initials(id, page, a.need::<4>("rect", "the initials crop box")?).map_err(ToolError::InvalidArgs)?;
+        let path = self.resolve(a.str("path")?, true)?;
+        crate::write_atomic(&path, image.bytes())?;
+        Ok(json!({"path":path,"width":image.size()[0],"height":image.size()[1]}))
+    }
+
     /// One of the read-only layers the GUI uses to drag/resize an embedded image signature.
     pub(crate) fn comment_image_preview(&self, a: &Args) -> Result<Vec<Content>> {
         let (page, index) = self.comment_target(a)?;
@@ -217,6 +239,22 @@ impl Automation {
             })
             .collect();
         Ok(json!({ "count": roots.len(), "comments": roots }))
+    }
+
+    pub(crate) fn mark_add(&mut self, a: &Args) -> Result<Value> {
+        let page = self.page(a)?;
+        let info = self.doc(a)?.info.pages[page].clone();
+        let graphic = pdfcraft_engine::work_marks::build_with_font(
+            a.str("text")?,
+            a.opt_num("font_size")?.unwrap_or(12.0),
+            a.color("color")?.unwrap_or([0.82, 0.12, 0.12]),
+            a.opt_str("font")?.unwrap_or(pdfcraft_engine::work_marks::DEFAULT_FONT),
+        )
+        .map_err(ToolError::InvalidArgs)?;
+        let edit = graphic
+            .place(page, &info, a.need::<2>("at", "the centre of a workpaper mark")?, a.opt_str("author")?.unwrap_or(DEFAULT_AUTHOR))
+            .map_err(ToolError::InvalidArgs)?;
+        self.apply(a, edit)
     }
 
     pub(crate) fn comment_add(&mut self, a: &Args) -> Result<Value> {

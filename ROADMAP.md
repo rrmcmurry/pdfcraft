@@ -1,5 +1,7 @@
 # PdfCraft roadmap
 
+- **2026-10-15 (McMurryPDF trays):** Removed incidental tray opening from annotation and editing tools, document opening/navigation settings, and signing completion. Deleted obsolete close-suppression flags; explicit tray/workspace choices remain. Focused annotation and document-open UI regressions cover closed and manually opened trays.
+
 **Stage: alpha** · next: beta, ~26% (ready for real work 49% → 75%) and ~400–700 h away
 
 > **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-13 · **Change:** minor (M3 candidate: native opens retain chosen tools through password retries and defer startup intake while preparation is pending; estimates unchanged) · **Target:** Adobe Acrobat Pro (Acrobat DC, continuous track 26.002.21931, macOS)
@@ -451,3 +453,10 @@ Newest first: the date, what moved, and the new overall estimate.
 - 2026-10-14: McMurryPDF report compatibility: stream parsing accepts horizontal padding before LF/CRLF/CR, preserving payload bytes and requiring a line ending. Regression failed before fix and passed afterward. Windows rebuild and real-report rendering verification pending; no customer documents added to source.
 
 2026-10-14 verification: report-stream parser release build completed; all three report pages render, 216 available parser tests pass, and the desktop shortcut points at the versioned reports build.
+
+- 2026-10-15: McMurryPDF marking tool adds persistent click-to-place references, . for a vector dot and / for a vector checkmark, remembered style, per-placement undo, and portable Stamp comments. Focused UI/automation and rotated-page save/render checks pass; upstream readiness estimates unchanged.
+- 2026-10-15: User review moved marking into the existing annotation toolbar extension and property-menu pattern (text, color and size), removed the stamp-tray dependency and reduced dot diameter by half. Release remains on hold for hands-on feedback.
+- 2026-10-15: Marking review added a remembered 12-face PDF font picker in the size popout, a filled tapered tick and previews rendered from the saved mark artwork. Local sandbox review continues before release.
+- 2026-10-15: The current-mark preview now reopens and focuses its text popup with the old value selected; fixed the overridden click handler. Checkmark dimensions reduced by 30% while retaining the tapered silhouette. Production release remains on hold.
+- 2026-10-15: Personal Sign off combines saved initials and the local placement date as one portable comment. Crop-from-page previews a transparent, trimmed replacement before Apply; cancel preserves existing initials. Repeated placement, date/artwork preservation and saved initials verified; sandbox review precedes packaging.
+- 2026-10-15: Initials editing now offers Type / Draw / Image / Capture. Capture closes through the modal's normal lifecycle before activating page cropping; regression reproduces the drawn-initials flow. Removed the standalone crop toolbar shortcut. Sandbox-only review continues.

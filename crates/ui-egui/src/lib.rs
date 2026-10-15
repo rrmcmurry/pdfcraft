@@ -49,6 +49,7 @@ mod crop;
 mod drag_pointer;
 mod export_ui;
 mod js_ui;
+pub mod marking;
 mod marks_ui;
 mod measure_ui;
 mod ocr_ui;
@@ -223,6 +224,8 @@ pub enum QuickTool {
     Stamp(pdfcraft_engine::StampKind),
     /// A custom stamp from the library (its index).
     CustomStamp(usize),
+    /// Persistent workpaper reference: click repeatedly with the current typed mark.
+    Mark,
     /// Edit a PDF ▸ Link: draw link areas, select and edit links.
     Link,
     /// Use a certificate ▸ Digitally sign / Certify (visible): drag the signature's rectangle.
@@ -233,6 +236,8 @@ pub enum QuickTool {
     MarqueeZoom,
     /// Edit ▸ Take a Snapshot.
     Snapshot,
+    /// Crop initials from a page into a draft; accepting it replaces saved initials.
+    CaptureInitials,
     /// Edit ▸ Column Select: drag a rectangle to select only the text inside it (#740). The
     /// Select tool does the same while Alt/Option is held at the start of a drag.
     ColumnSelect,
@@ -500,13 +505,8 @@ pub struct PdfCraftApp {
     /// panes closed; leaving Read mode brings it back unless the user opened or closed a pane in
     /// Read mode meanwhile.
     right_before_read: Option<RightPanel>,
-    /// The user closed the Comments panel, so picking a comment tool leaves it closed until they
-    /// open it again (#225). Remembered across restarts.
-    pub comments_panel_closed: bool,
-    /// The user closed the right panel, so opening a document leaves it closed instead of
-    /// showing its comments or bookmarks (#1590). Remembered across restarts.
-    pub right_panel_closed: bool,
     pub quick_tool: QuickTool,
+    pub marking: marking::Marking,
     /// The tool to go back to when Space, held for a temporary Hand, is released.
     space_hand: Option<QuickTool>,
     /// Comment author, per-tool colours and widths, pin.
@@ -886,12 +886,11 @@ impl PdfCraftApp {
             left: LeftPanel::AllTools,
             docking: docking::Workspace::default(),
             pending_panel_reveals: Vec::new(),
-            left_open: true,
+            left_open: false,
             right: None,
             right_before_read: None,
-            comments_panel_closed: false,
-            right_panel_closed: false,
             quick_tool: QuickTool::Select,
+            marking: marking::Marking::default(),
             space_hand: None,
             comment_prefs: Default::default(),
             theme: ThemeKind::Light,
@@ -1069,20 +1068,11 @@ impl PdfCraftApp {
         ((self.left_open && self.left == LeftPanel::Tool("form")) || matches!(self.quick_tool, QuickTool::Field(_))) && !self.form_preview
     }
 
-    /// Open a document the way it asks to be opened: navigation panel, layout, magnification,
-    /// page (Document Properties ▸ Initial View).
+    /// Apply the document's initial layout, magnification and page. Tray visibility
+    /// belongs to the user, rather than the document's navigation preference.
     fn apply_initial_view(&mut self, index: usize, v: &pdfcraft_engine::InitialView) {
-        use pdfcraft_engine::{InitialLayout as L, Magnification as M, Navigation as N};
+        use pdfcraft_engine::{InitialLayout as L, Magnification as M};
         let pages = self.session.get(self.views[index].id).map_or(0, |d| d.info.pages.len());
-        if self.active == Some(index) {
-            match v.navigation {
-                N::PageOnly => {}
-                N::Bookmarks => self.right = Some(RightPanel::Bookmarks),
-                N::Pages => self.right = Some(RightPanel::Pages),
-                N::Attachments => self.right = Some(RightPanel::Attachments),
-                N::Layers => self.right = Some(RightPanel::Layers),
-            }
-        }
         let view = &mut self.views[index];
         match v.layout {
             // The view opened in Default page display already.
@@ -1299,19 +1289,6 @@ impl PdfCraftApp {
         self.session.set_reading_colors(id, self.reading_colors);
         let doc = self.session.get(id).ok_or("the document could not be opened")?;
         let pages = doc.info.pages.len();
-        // Acrobat opens straight to the Comments panel when a document has comments.
-        // Read mode opens with the panes closed; the rail still opens them (#932). A right panel
-        // the user closed stays closed (#1590).
-        let opening_mode = self.mode_override.unwrap_or(self.default_mode);
-        if activate && self.right.is_none() && !self.right_panel_closed && opening_mode != Mode::Read {
-            self.right = if !doc.info.annotations.is_empty() {
-                Some(RightPanel::Comments)
-            } else if !doc.info.outline.is_empty() {
-                Some(RightPanel::Bookmarks)
-            } else {
-                None
-            };
-        }
         let initial = doc.initial_view();
         self.views.push(DocView::new(id, &doc.info, self.view_defaults));
         if activate {
@@ -2103,22 +2080,12 @@ impl PdfCraftApp {
         }
     }
 
-    /// Opens a right panel, or closes it with `None`, because the user chose to. Closing Comments
-    /// keeps comment tools from reopening it; opening it again lets them (#225). A choice made in
-    /// Read mode replaces the pane saved on the way in, so leaving Read mode doesn't undo it.
+    /// Opens a right panel, or closes it with `None`, because the user chose to. Tools
+    /// preserve this choice. A choice made in Read mode replaces the pane saved on
+    /// the way in, so leaving Read mode doesn't undo it.
     pub fn choose_right_panel(&mut self, panel: Option<RightPanel>) {
         if self.mode == Mode::Read {
             self.right_before_read = None;
-        }
-        if panel == Some(RightPanel::Comments) {
-            self.comments_panel_closed = false;
-        } else if panel.is_none() && self.right == Some(RightPanel::Comments) {
-            self.comments_panel_closed = true;
-        }
-        if panel.is_some() {
-            self.right_panel_closed = false;
-        } else if self.right.is_some() {
-            self.right_panel_closed = true;
         }
         self.right = panel;
         if panel.is_some() {
@@ -2182,13 +2149,12 @@ impl PdfCraftApp {
             "digital_ids": self.digital_ids.iter().filter(|e| !e.path.starts_with("keychain:") && !e.path.starts_with("windows:")).collect::<Vec<_>>(),
             "trusted": trusted,
             "custom_stamps": stamps_ui::encode(&self.custom_stamps),
+            "marking": self.marking,
             "javascript": self.session.javascript(),
             "actions": actions_ui::encode(&self.custom_actions),
             "combine_columns": self.combine_columns.to_json(),
             "combine_view": self.combine_view.as_str(),
             "combine_zoom": self.combine_zoom,
-            "comments_panel_closed": self.comments_panel_closed,
-            "right_panel_closed": self.right_panel_closed,
         })
         .to_string()
     }
@@ -2252,12 +2218,6 @@ impl PdfCraftApp {
         }
         if let Some(on) = v["highlight_fields"].as_bool() {
             self.view_defaults.highlight_fields = on;
-        }
-        if let Some(closed) = v["comments_panel_closed"].as_bool() {
-            self.comments_panel_closed = closed;
-        }
-        if let Some(closed) = v["right_panel_closed"].as_bool() {
-            self.right_panel_closed = closed;
         }
         if let Some(defaults) = v["default_zoom"].as_str().and_then(|zoom| self.view_defaults.with_zoom(zoom)) {
             self.view_defaults = defaults;
@@ -2338,6 +2298,7 @@ impl PdfCraftApp {
             self.digital_ids = ids;
         }
         self.custom_stamps = stamps_ui::decode(&v["custom_stamps"]);
+        self.marking = serde_json::from_value(v["marking"].clone()).unwrap_or_default();
         self.custom_actions = actions_ui::decode(&v["actions"]);
         if let Some(on) = v["javascript"].as_bool() {
             self.session.set_javascript(on);
@@ -2561,6 +2522,7 @@ impl PdfCraftApp {
                         measure_ui::Tool::from_name(measure.trim_start_matches("measure-")).ok_or_else(|| format!("unknown tool {measure}"))?,
                     ),
                     "hand" => QuickTool::Hand,
+                    "mark" => QuickTool::Mark,
                     "crop" => QuickTool::Crop,
                     "enhance-camera" => QuickTool::EnhanceCamera,
                     "redact" => QuickTool::Redact,
@@ -2597,6 +2559,11 @@ impl PdfCraftApp {
                         QuickTool::Comment(t)
                     }
                 };
+            }
+            ("mark-text", _) => self.marking.text = value.chars().take(pdfcraft_engine::work_marks::MAX_CHARS + 1).collect(),
+            ("mark-font", _) => {
+                pdfcraft_engine::work_marks::font(value)?;
+                self.marking.font = value.into();
             }
             ("author", _) => self.comment_prefs.author = value.to_string(),
             ("ui-scale", _) => self.ui_scale = ui_scale::parse(value)?,
@@ -2687,6 +2654,19 @@ impl PdfCraftApp {
             return;
         }
         self.registry_shortcuts(ctx);
+        if matches!(self.quick_tool, QuickTool::Mark | QuickTool::CaptureInitials) && ctx.input(|i| i.key_pressed(Key::Escape)) {
+            self.quick_tool = QuickTool::Select;
+            self.marking.focus = false;
+            for view in &mut self.views {
+                view.marquee = None;
+                view.marquee_done = None;
+            }
+            ctx.memory_mut(|m| {
+                if let Some(id) = m.focused() {
+                    m.surrender_focus(id);
+                }
+            });
+        }
         // (Esc closes a Combine file shown large first.)
         if self.full_screen && self.combine_tab.preview.is_none() && ctx.input(|i| i.key_pressed(Key::Escape)) {
             self.set_full_screen(ctx, false);

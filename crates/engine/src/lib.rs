@@ -32,9 +32,11 @@ pub mod printcheck;
 mod scan_colours;
 pub mod signature_image;
 pub mod signature_scan;
+pub mod signoff;
 pub mod text_fonts;
 mod text_preview;
 mod upright_image;
+pub mod work_marks;
 pub mod xfa;
 
 pub use signature_image::{ImageSignaturePreview, SignatureImage};

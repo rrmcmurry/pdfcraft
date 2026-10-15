@@ -21,10 +21,20 @@ pub enum FillTool {
     Date,
     Signature,
     Initials,
+    InitialsDate,
 }
 
-pub const FILL_TOOLS: [FillTool; 8] =
-    [FillTool::Text, FillTool::Cross, FillTool::Check, FillTool::Dot, FillTool::Line, FillTool::Date, FillTool::Signature, FillTool::Initials];
+pub const FILL_TOOLS: [FillTool; 9] = [
+    FillTool::Text,
+    FillTool::Cross,
+    FillTool::Check,
+    FillTool::Dot,
+    FillTool::Line,
+    FillTool::Date,
+    FillTool::Signature,
+    FillTool::Initials,
+    FillTool::InitialsDate,
+];
 
 /// A saved signature or initials: drawn strokes (normalised to the pad width, y up) or typed
 /// text (drawn in the script font), or a locally imported image.
@@ -86,6 +96,8 @@ pub struct SigDraft {
     pub initials: bool,
     /// Replacing an existing saved value.
     pub editing: bool,
+    /// Return to Sign off when this initials draft is accepted.
+    pub signoff: bool,
 }
 
 impl SigDraft {
@@ -338,6 +350,7 @@ impl FillTool {
             FillTool::Date => "sign.fill.date",
             FillTool::Signature => "sign.fill.signature",
             FillTool::Initials => "sign.fill.initials",
+            FillTool::InitialsDate => "sign.off",
         }
     }
 
@@ -355,6 +368,7 @@ impl FillTool {
             FillTool::Date => "Date",
             FillTool::Signature => "Sign",
             FillTool::Initials => "Initials",
+            FillTool::InitialsDate => "Sign off (initials + date)",
         }
     }
 
@@ -367,6 +381,7 @@ impl FillTool {
             FillTool::Line => "minus",
             FillTool::Date => "clock-3",
             FillTool::Signature | FillTool::Initials => "signature",
+            FillTool::InitialsDate => "clock-3",
         }
     }
 
@@ -618,10 +633,27 @@ pub(crate) fn page_input(
     let at = to_user(xf, info, page, pointer);
     let saved = match tool {
         FillTool::Signature => signature,
-        FillTool::Initials => initials,
+        FillTool::Initials | FillTool::InitialsDate => initials,
         _ => None,
     };
-    if let Some(SavedSig::Image(image)) = saved {
+    if tool == FillTool::InitialsDate {
+        if let (Some(saved), Ok(date)) = (saved, date_text) {
+            let scale = xf.rect.width() / xf.pw.max(1.0);
+            let w = pdfcraft_engine::signoff::width(date) as f32 * scale;
+            let h = (pdfcraft_engine::signoff::HEIGHT + 4.0) as f32 * scale;
+            let box_rect = egui::Rect::from_center_size(pointer, vec2(w, h));
+            let initials_rect = egui::Rect::from_min_size(box_rect.min + vec2(2.0, 2.0) * scale, vec2(38.4, 24.0) * scale);
+            paint_saved(ui, initials_rect, saved, preview, "signoff-initials");
+            ui.painter().text(
+                pos2(initials_rect.right() + 6.0 * scale, pointer.y),
+                egui::Align2::LEFT_CENTER,
+                date,
+                crate::theme::regular(10.0 * scale),
+                Color32::BLACK,
+            );
+        }
+        ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
+    } else if let Some(SavedSig::Image(image)) = saved {
         if let Some(rect) = image.rect(p, at, tool == FillTool::Initials) {
             let tex = image_texture(ui, image, preview);
             xf.paint_user_image(ui.painter(), tex, p, rect, i64::from(p.rotation), Color32::WHITE);
@@ -652,6 +684,24 @@ pub(crate) fn page_input(
         FillTool::Initials => match initials {
             Some(s) => place(page, p, at, s, true, author).map(|e| FillAction::Signature(Box::new(e))),
             None => Some(FillAction::CreateInitials),
+        },
+        FillTool::InitialsDate => match (initials, date_text) {
+            (None, _) => Some(FillAction::CreateInitials),
+            (_, Err(error)) => Some(FillAction::Refused(error.clone())),
+            (Some(saved), Ok(date)) => {
+                let result = saved
+                    .graphic()
+                    .ok_or_else(|| "Choose initials with visible ink.".to_string())
+                    .and_then(|g| pdfcraft_engine::signoff::build(&g, date))
+                    .and_then(|g| {
+                        let (x, y) = xf.screen_to_view(pointer);
+                        g.place(page, p, [f64::from(x), f64::from(y)], author)
+                    });
+                Some(match result {
+                    Ok(edit) => FillAction::Edit(Box::new(edit)),
+                    Err(error) => FillAction::Refused(error),
+                })
+            }
         },
         mark => {
             let mark = mark.mark()?;
@@ -726,14 +776,19 @@ pub(crate) fn type_box(ctx: &egui::Context, view: &mut DocView, info: &DocInfo, 
 }
 
 /// The signature pad: type, draw, import an image or scan a photo. Returns Apply, Cancel and
-/// Browse (for an image or, on the Scan tab, a photo).
+/// Browse (for an image or, on the signature Scan tab, a photo), and Capture from page.
 pub(crate) fn signature_pad(
     ui: &mut egui::Ui,
     t: &Tokens,
     d: &mut SigDraft,
     preview: &mut Option<(SavedSig, egui::TextureHandle)>,
     photo_texture: &mut Option<(u64, egui::TextureHandle)>,
-) -> (bool, bool, bool) {
+    can_capture: bool,
+) -> (bool, bool, bool, bool) {
+    let mut capture = false;
+    if d.initials {
+        d.scan_mode = false;
+    }
     let what = if d.initials { tl!("initials") } else { tl!("signature") };
     let title = if d.editing { tl!("Change {what}") } else { tl!("Create {what}") };
     ui.label(egui::RichText::new(crate::i18n::fmt(title, &[("what", what)])).font(crate::theme::semibold(18.0)));
@@ -752,7 +807,13 @@ pub(crate) fn signature_pad(
             d.image_mode = true;
             d.scan_mode = false;
         }
-        if crate::widgets::pill_button(ui, tl!("Scan"), d.scan_mode).clicked() && !d.scan_mode {
+        if d.initials {
+            capture = ui
+                .add_enabled_ui(can_capture, |ui| crate::widgets::pill_button(ui, "Capture", false))
+                .inner
+                .on_hover_text("Capture initials from the current PDF page")
+                .clicked();
+        } else if crate::widgets::pill_button(ui, tl!("Scan"), d.scan_mode).clicked() && !d.scan_mode {
             d.scan_mode = true;
             d.image_mode = false;
             // The Image tab shares the result; show this tab's own again.
@@ -761,11 +822,14 @@ pub(crate) fn signature_pad(
             }
         }
     });
+    if capture {
+        return (false, false, false, true);
+    }
     ui.add_space(6.0);
     if d.scan_mode {
         let browse = scan_tab(ui, t, d, preview, photo_texture);
         let (apply, cancel) = pad_buttons(ui, d);
-        return (apply, cancel, browse);
+        return (apply, cancel, browse, false);
     }
     if d.image_mode {
         ui.label(egui::RichText::new(tl!("Choose a PNG or JPEG image (up to 4 MiB). Transparency is preserved.")).color(t.text_muted));
@@ -777,7 +841,7 @@ pub(crate) fn signature_pad(
             image_preview(ui, rect.shrink(8.0), image, preview);
         }
         let (apply, cancel) = pad_buttons(ui, d);
-        return (apply, cancel, browse);
+        return (apply, cancel, browse, false);
     }
     if !d.drawing {
         let l = ui.label(egui::RichText::new(crate::i18n::fmt(tl!("Type your {what}."), &[("what", what)])).color(t.text_muted));
@@ -801,7 +865,7 @@ pub(crate) fn signature_pad(
             painter.image(tex.id(), rect.shrink(4.0), egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
         }
         let (apply, cancel) = pad_buttons(ui, d);
-        return (apply, cancel, false);
+        return (apply, cancel, false, false);
     }
     ui.label(egui::RichText::new(crate::i18n::fmt(tl!("Draw your {what} below."), &[("what", what)])).color(t.text_muted));
     let strokes = &mut d.strokes;
@@ -828,7 +892,7 @@ pub(crate) fn signature_pad(
         painter.add(egui::Shape::line(pts, Stroke::new(2.0, Color32::BLACK)));
     }
     let (apply, cancel) = pad_buttons(ui, d);
-    (apply, cancel, false)
+    (apply, cancel, false, false)
 }
 
 /// The Scan tab above the pad buttons. Returns whether a photo should be chosen.

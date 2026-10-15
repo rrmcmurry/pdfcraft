@@ -2306,12 +2306,16 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         | QuickTool::EditText
         | QuickTool::Stamp(_)
         | QuickTool::CustomStamp(_)
+        | QuickTool::Mark
         | QuickTool::Link
         | QuickTool::SignArea { .. }
         | QuickTool::MarqueeZoom
-        | QuickTool::Snapshot => false,
+        | QuickTool::Snapshot
+        | QuickTool::CaptureInitials => false,
     };
     let prefs = &app.comment_prefs;
+    let marking = (tool == QuickTool::Mark).then(|| app.marking.graphic());
+    let mark_preview = (tool == QuickTool::Mark).then(|| app.marking.preview(ui.ctx())).flatten();
     let units = app.units;
     let allowed = doc.allows_annotation();
     let comments_hidden = doc.comments_hidden();
@@ -2325,7 +2329,11 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
     let author = app.comment_prefs.author.clone();
     let today = app.session.today();
     // In Preferences ▸ Date format, or why it can't be stamped into the PDF.
-    let date_text = crate::date_text_for_pdf(&app.session);
+    let date_text = if tool == QuickTool::Fill(crate::fill_sign::FillTool::InitialsDate) {
+        app.session.today_text_for_pdf(Some(pdfcraft_engine::signoff::DATE_FORMAT), None)
+    } else {
+        crate::date_text_for_pdf(&app.session)
+    };
     let mut refused: Option<String> = None;
     let by_line = app.session.stamp_by_line(&author);
     let mut stamp_placed = false;
@@ -2585,6 +2593,28 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
 
             // Form fields take clicks first with the Select tool (as Acrobat fills fields in
             // every viewing mode); then comments; then text selection.
+            if let Some(Ok(mark)) = &marking
+                && allowed
+                && !page_covered
+                && let Some(p) = resp.hover_pos().filter(|p| xf.rect.contains(*p))
+            {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
+                if let Some(texture) = &mark_preview {
+                    painter.image(
+                        texture.id(),
+                        Rect::from_center_size(p, vec2(mark.width as f32 * scale, mark.height as f32 * scale)),
+                        Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                        Color32::from_white_alpha(170),
+                    );
+                }
+                if resp.clicked() {
+                    let (x, y) = xf.screen_to_view(p);
+                    match mark.place(i, &info.pages[i], [f64::from(x), f64::from(y)], &author) {
+                        Ok(edit) => view.pending_edit = Some(edit),
+                        Err(e) => refused = Some(e),
+                    }
+                }
+            }
             if let QuickTool::Stamp(kind) = tool
                 && allowed
                 && let Some(p) = ui.input(|inp| inp.pointer.hover_pos()).filter(|p| xf.rect.contains(*p))
@@ -2663,7 +2693,7 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
             if matches!(tool, QuickTool::SignArea { .. }) {
                 crate::sign_ui::page_input(ui, &resp, &xf, i, info, view);
             }
-            if matches!(tool, QuickTool::MarqueeZoom | QuickTool::Snapshot) {
+            if matches!(tool, QuickTool::MarqueeZoom | QuickTool::Snapshot | QuickTool::CaptureInitials) {
                 crate::zoom_snap::page_input(ui, &resp, &xf, i, view);
             }
             if tool == QuickTool::EnhanceCamera {
@@ -3316,7 +3346,6 @@ pub fn document_area(app: &mut PdfCraftApp, index: usize, ui: &mut egui::Ui) {
         // `choose_right_panel` would borrow all of `app` while `view` is held; same effect.
         Some(comments::CanvasAction::OpenComments) => {
             app.right = Some(RightPanel::Comments);
-            app.comments_panel_closed = false;
         }
         Some(comments::CanvasAction::Properties(p, i)) => open_props = Some((p, i)),
         Some(comments::CanvasAction::CopyImage(p, i)) => image_action = Some(crate::edit_text_ui::ImageAction::Copy(p, i)),
@@ -3907,6 +3936,23 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                     if icons::button(ui, "hand", 32.0, app.quick_tool == QuickTool::Hand, tl!("Hand (H)")).clicked() {
                         app.quick_tool = QuickTool::Hand;
                     }
+                    let mark = icons::button(ui, "stamp", 32.0, app.quick_tool == QuickTool::Mark, "Mark workpaper");
+                    // A small impression distinguishes marking from the stamp-library icon.
+                    ui.painter().circle_filled(mark.rect.center() + vec2(8.0, 7.0), 2.0, t.accent);
+                    if mark.clicked() {
+                        app.execute("comment.mark");
+                    }
+                    if icons::button(
+                        ui,
+                        "signature",
+                        32.0,
+                        app.quick_tool == QuickTool::Fill(crate::fill_sign::FillTool::InitialsDate),
+                        "Sign off (initials + date)",
+                    )
+                    .clicked()
+                    {
+                        app.execute("sign.off");
+                    }
                     // Comment ▸, Highlight ▸, Draw ▸ (Acrobat's comment toolbar groups). Clicking a
                     // group selects its last-used tool; clicking it again opens the flyout.
                     for g in 0..comments::GROUPS.len() {
@@ -4041,6 +4087,11 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                                 .suffix(" pt"),
                         );
                     }
+                    if current_fill == Some(crate::fill_sign::FillTool::InitialsDate)
+                        && icons::button(ui, "pencil", 32.0, false, "Set/change sign-off initials").clicked()
+                    {
+                        app.execute("sign.off.change");
+                    }
                     if let QuickTool::Comment(tool) = app.quick_tool {
                         let (r, _) = ui.allocate_exact_size(vec2(32.0, 9.0), Sense::hover());
                         ui.painter().hline(r.x_range().shrink(6.0), r.center().y, Stroke::new(1.0, t.divider));
@@ -4065,6 +4116,11 @@ fn quick_bar(app: &mut PdfCraftApp, area: Rect, ui: &mut egui::Ui) {
                                 endings: None,
                             });
                         }
+                    }
+                    if app.quick_tool == QuickTool::Mark {
+                        let (r, _) = ui.allocate_exact_size(vec2(32.0, 9.0), Sense::hover());
+                        ui.painter().hline(r.x_range().shrink(6.0), r.center().y, Stroke::new(1.0, t.divider));
+                        crate::marking::quick_bar_controls(app, ui);
                     }
                 });
             });

@@ -275,10 +275,8 @@ impl PdfCraftApp {
                 let Some(tool) = crate::comments::CommentTool::from_command(tool) else { return false };
                 self.comment_prefs.group_tool[tool.group()] = tool;
                 self.quick_tool = crate::QuickTool::Comment(tool);
-                // Acrobat opens the Comments panel with the commenting tools, unless the user closed it.
-                if self.right.is_none() && !self.comments_panel_closed {
-                    self.choose_right_panel(Some(RightPanel::Comments));
-                }
+                // Tool selection preserves the user's tray choice. Comments opens only
+                // through an explicit panel action, not as a side effect of annotating.
                 // A text selection made before picking a markup tool is marked right away.
                 if let (Some(kind), Some(i)) = (tool.markup(), active)
                     && let Some(doc) = self.session.get(self.views[i].id)
@@ -383,7 +381,6 @@ impl PdfCraftApp {
             "edit.edit_text" => {
                 self.quick_tool = crate::QuickTool::EditText;
                 self.left = crate::LeftPanel::Tool("edit");
-                self.reveal_tools();
                 self.notify_tr("Click text or an image to edit it");
             }
             "edit.advanced_search" => {
@@ -396,9 +393,7 @@ impl PdfCraftApp {
             }
             "a11y.report" => self.show_accessibility_report(),
             "a11y.autotag" => {
-                if self.apply_edit(pdfcraft_engine::Edit::AutoTagText) {
-                    self.choose_right_panel(Some(RightPanel::Tags));
-                }
+                self.apply_edit(pdfcraft_engine::Edit::AutoTagText);
             }
             "a11y.alt_text" => self.start_alt_text(),
             "a11y.tags" => self.choose_right_panel(Some(RightPanel::Tags)),
@@ -407,7 +402,6 @@ impl PdfCraftApp {
             "edit.text" => {
                 self.quick_tool = crate::QuickTool::AddText;
                 self.left = crate::LeftPanel::Tool("edit");
-                self.reveal_tools();
             }
             "edit.image" => self.add_image_dialog(),
             "edit.link" => {
@@ -419,7 +413,6 @@ impl PdfCraftApp {
             "redact.mark" => {
                 self.quick_tool = crate::QuickTool::Redact;
                 self.left = crate::LeftPanel::Tool("redact");
-                self.reveal_tools();
                 // A text selection made first is marked right away.
                 if let Some(i) = active
                     && let Some(doc) = self.session.get(self.views[i].id)
@@ -471,6 +464,10 @@ impl PdfCraftApp {
             "comment.stamp" => {
                 self.left = crate::LeftPanel::Tool("stamp");
                 self.reveal_tools();
+            }
+            "comment.mark" => {
+                self.quick_tool = crate::QuickTool::Mark;
+                self.marking.focus = true;
             }
             "comment.export" => self.export_data_dialog(true, false),
             "comment.summarize" => self.dialog = Some(Dialog::SummarizeComments),
@@ -556,7 +553,6 @@ impl PdfCraftApp {
                 let Some(tool) = crate::prepare::FieldTool::from_command(field) else { return false };
                 self.quick_tool = crate::QuickTool::Field(tool);
                 self.left = crate::LeftPanel::Tool("form");
-                self.reveal_tools();
                 if let Some(i) = active {
                     self.views[i].forms.focus = None;
                 }
@@ -564,6 +560,18 @@ impl PdfCraftApp {
                     "Click on the page to add a {tool}, or drag to set its size",
                     &[("tool", &crate::i18n::in_sentence(tl!(tool.label())))],
                 );
+            }
+            "sign.off.capture" => {
+                self.quick_tool = crate::QuickTool::CaptureInitials;
+                self.notify("Drag a crop box around your initials. You can preview them before saving.");
+            }
+            "sign.off.change" => {
+                self.signature_draft = self.initials.as_ref().map_or_else(
+                    || crate::fill_sign::SigDraft::new(true, &self.comment_prefs.author),
+                    |s| crate::fill_sign::SigDraft::from_saved(true, s),
+                );
+                self.signature_draft.signoff = true;
+                self.dialog = Some(Dialog::Signature);
             }
             "sign.fill.signature.remove" => self.signature = None,
             "sign.fill.initials.remove" => self.initials = None,
@@ -579,9 +587,10 @@ impl PdfCraftApp {
             fill if crate::fill_sign::FillTool::from_command(fill).is_some() => {
                 let Some(tool) = crate::fill_sign::FillTool::from_command(fill) else { return false };
                 self.quick_tool = crate::QuickTool::Fill(tool);
-                let initials = tool == crate::fill_sign::FillTool::Initials;
+                let initials = matches!(tool, crate::fill_sign::FillTool::Initials | crate::fill_sign::FillTool::InitialsDate);
                 if (tool == crate::fill_sign::FillTool::Signature && self.signature.is_none()) || (initials && self.initials.is_none()) {
                     self.signature_draft = crate::fill_sign::SigDraft::new(initials, &self.comment_prefs.author);
+                    self.signature_draft.signoff = tool == crate::fill_sign::FillTool::InitialsDate;
                     self.dialog = Some(Dialog::Signature);
                 }
             }

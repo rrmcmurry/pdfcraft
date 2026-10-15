@@ -846,8 +846,20 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 return;
             }
             Dialog::Signature => {
-                let (apply, cancel, browse) =
-                    crate::fill_sign::signature_pad(ui, &t, &mut app.signature_draft, &mut app.signature_preview, &mut app.signature_photo);
+                let can_capture = app.active.and_then(|i| app.views.get(i)).and_then(|v| app.session.get(v.id)).is_some_and(|d| d.allows_copying());
+                let (apply, cancel, browse, capture) = crate::fill_sign::signature_pad(
+                    ui,
+                    &t,
+                    &mut app.signature_draft,
+                    &mut app.signature_preview,
+                    &mut app.signature_photo,
+                    can_capture,
+                );
+                if capture {
+                    close = true;
+                    link_command = Some("sign.off.capture");
+                    return;
+                }
                 if browse {
                     app.pick_signature_image();
                 }
@@ -855,7 +867,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     let d = std::mem::take(&mut app.signature_draft);
                     let tool = if d.initials {
                         app.initials = d.saved();
-                        crate::fill_sign::FillTool::Initials
+                        if d.signoff { crate::fill_sign::FillTool::InitialsDate } else { crate::fill_sign::FillTool::Initials }
                     } else {
                         app.signature = d.saved();
                         crate::fill_sign::FillTool::Signature
