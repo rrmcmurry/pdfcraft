@@ -2,6 +2,8 @@
 
 ## Install on another computer
 
+Current testing release: [McMurryPDF 0.8.2](https://github.com/rrmcmurry/pdfcraft/releases/tag/mcmurrypdf-v0.8.2-testing). [Download the signed Windows x64 installer](https://github.com/rrmcmurry/pdfcraft/releases/download/mcmurrypdf-v0.8.2-testing/McMurrySoftware.McMurryPDF-testing-Setup.exe). Existing 0.8.1 testing installations discover it through Help > Check for updates. The 0.8.2 Setup, 0.8.1-to-0.8.2 update and fresh independent thumbnails were verified in Windows Sandbox with Acrobat absent.
+
 Version 0.8.2 adds persistent workpaper marking (typed references, dot/check shortcuts, font/size/color controls), personal initials with a date fixed when placed, capture of initials from a PDF page, and tray visibility controlled by the user. Marks and sign-offs remain portable PDF comments. Each user supplies their own initials; no personal signature is bundled in the installer.
 
 Download **McMurrySoftware.McMurryPDF-testing-Setup.exe** from the McMurryPDF testing release in [this fork's releases](https://github.com/rrmcmurry/pdfcraft/releases). This is an x64 Windows pilot build, not a claim of Acrobat annotation parity. Check Properties > Digital Signatures: the publisher is **Robert McMurry** (McMurry Software's signing identity). Do not use the old unsigned prototype or the internal update-probe package.
