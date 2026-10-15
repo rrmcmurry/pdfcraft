@@ -864,12 +864,14 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     app.pick_signature_image();
                 }
                 if apply {
+                    if let Err(error) = app.update_saved_signature(app.signature_draft.initials, app.signature_draft.saved()) {
+                        app.notify_fmt("Could not save signature or initials: {e}", &[("e", &error)]);
+                        return;
+                    }
                     let d = std::mem::take(&mut app.signature_draft);
                     let tool = if d.initials {
-                        app.initials = d.saved();
                         if d.signoff { crate::fill_sign::FillTool::InitialsDate } else { crate::fill_sign::FillTool::Initials }
                     } else {
-                        app.signature = d.saved();
                         crate::fill_sign::FillTool::Signature
                     };
                     app.quick_tool = crate::QuickTool::Fill(tool);

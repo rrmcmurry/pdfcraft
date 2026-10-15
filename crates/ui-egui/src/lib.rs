@@ -96,6 +96,8 @@ mod pickers;
 pub mod prepare;
 mod print_ui;
 mod signature_drag;
+#[cfg(not(target_arch = "wasm32"))]
+mod signing_assets;
 pub mod units;
 mod web_print;
 pub use print_ui::{Handling as PrintHandling, PrintDraft, PrinterSource, Which as PrintWhich, system_printers};
@@ -766,6 +768,8 @@ pub struct PdfCraftApp {
     /// The saved Fill & Sign signature and initials (drawn or typed).
     pub signature: Option<fill_sign::SavedSig>,
     pub initials: Option<fill_sign::SavedSig>,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) signing_assets: Option<signing_assets::Store>,
     /// The Create signature / initials dialog, and its typed preview.
     pub signature_draft: fill_sign::SigDraft,
     pub(crate) signature_preview: Option<(fill_sign::SavedSig, egui::TextureHandle)>,
@@ -1039,6 +1043,8 @@ impl PdfCraftApp {
             export_status: None,
             signature: None,
             initials: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            signing_assets: None,
             signature_draft: Default::default(),
             signature_preview: None,
             signature_photo: None,

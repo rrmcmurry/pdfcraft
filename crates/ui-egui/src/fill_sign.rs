@@ -59,6 +59,18 @@ impl SavedSig {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+impl crate::PdfCraftApp {
+    pub fn update_saved_signature(&mut self, initials: bool, saved: Option<SavedSig>) -> Result<(), String> {
+        if initials {
+            self.initials = saved;
+        } else {
+            self.signature = saved;
+        }
+        Ok(())
+    }
+}
+
 pub(crate) mod image_data {
     use base64::Engine as _;
     use pdfcraft_engine::{SignatureImage, signature_image::MAX_SIGNATURE_IMAGE_BYTES};

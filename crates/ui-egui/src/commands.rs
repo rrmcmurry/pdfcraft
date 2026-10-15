@@ -144,6 +144,13 @@ impl PdfCraftApp {
         }
         let active = self.active;
         let targets = active.map(|i| self.views[i].target_pages()).unwrap_or_default();
+        #[cfg(not(target_arch = "wasm32"))]
+        if (id.starts_with("sign.fill.signature") || id.starts_with("sign.fill.initials") || id.starts_with("sign.off"))
+            && let Err(error) = self.refresh_signing_assets()
+        {
+            self.notify_fmt("Could not load signature or initials: {e}", &[("e", &error)]);
+            return false;
+        }
         match id {
             "ui.dock.reset" => {
                 if let Err(error) = crate::docking::command(self, true, &serde_json::Value::Null) {
@@ -573,8 +580,11 @@ impl PdfCraftApp {
                 self.signature_draft.signoff = true;
                 self.dialog = Some(Dialog::Signature);
             }
-            "sign.fill.signature.remove" => self.signature = None,
-            "sign.fill.initials.remove" => self.initials = None,
+            "sign.fill.signature.remove" | "sign.fill.initials.remove" => {
+                if let Err(error) = self.update_saved_signature(id == "sign.fill.initials.remove", None) {
+                    self.notify_fmt("Could not save signature or initials: {e}", &[("e", &error)]);
+                }
+            }
             "sign.fill.signature.change" | "sign.fill.initials.change" => {
                 let initials = id == "sign.fill.initials.change";
                 let saved = if initials { self.initials.as_ref() } else { self.signature.as_ref() };

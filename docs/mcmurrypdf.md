@@ -18,6 +18,8 @@ Automation uses `mark_add` with `doc`, `page`, `at` (the centre in displayed-pag
 
 ## Personal sign-offs
 
+Native windows share saved initials and full signatures in `signing-assets.json` in the user's settings directory (or portable data directory). Apply saves immediately; selecting a signature tool refreshes its saved asset across windows. Closing an older document cannot overwrite newer initials. Existing window preferences migrate automatically on first use. Storage failures are reported without replacing the saved asset.
+
 Choose **Sign off (initials + date)** from the signature icon in the floating toolbar, Fill & Sign, or command search. Each user supplies their own saved initials using **Type**, **Draw**, **Image** or **Capture**. **Capture** dismisses the initials dialog and switches to a crop box on the open PDF; draw around the initials, review the transparent result, then **Apply**. Cancel keeps the previous initials. The active tool's pencil opens initials settings; Capture belongs in that dialog rather than a standalone crop shortcut. Saved initials live in that user's settings, never in the application or repository.
 
 Click repeatedly to place one portable Stamp comment containing the initials and the current local date in `m/d/yy` format. The appearance and date are fixed for each placement; changing saved initials or the date affects future placements only. Existing sign-offs survive save/reopen and Fill & Sign flattening, with normal comment author information, move/resize/delete and per-placement undo. Placing them respects the Comments panel's current visibility.

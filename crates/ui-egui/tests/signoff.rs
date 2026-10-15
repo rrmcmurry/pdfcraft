@@ -183,3 +183,53 @@ fn empty_invalid_and_outside_crops_are_refused_without_replacing_initials() {
     }
     assert_eq!(app.initials, Some(SavedSig::Typed("Old".into())));
 }
+
+#[test]
+fn captured_initials_are_available_to_new_windows_before_window_settings_are_saved() {
+    let directory = std::env::temp_dir().join(format!(
+        "mcmurry-signing-windows-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    let mut h = harness();
+    h.state_mut().connect_signing_assets(&directory).unwrap();
+    let old_snapshot = h.state().persist();
+    let mut older_window = PdfCraftApp::new();
+    older_window.restore(&old_snapshot);
+    older_window.connect_signing_assets(&directory).unwrap();
+    capture(&mut h);
+    h.get_by_label("Apply").click();
+    h.run_steps(3);
+    let accepted = h.state().initials.clone();
+    assert!(matches!(accepted, Some(SavedSig::Image(_))));
+    // A new native window still sees the old eframe preference snapshot until autosave.
+    let mut new_window = PdfCraftApp::new();
+    new_window.restore(&old_snapshot);
+    new_window.connect_signing_assets(&directory).unwrap();
+    assert!(new_window.initials == accepted, "Apply must save the accepted crop before another document opens");
+    // An older window exiting may save stale window preferences, but cannot lose the asset.
+    new_window.restore(&older_window.persist());
+    new_window.connect_signing_assets(&directory).unwrap();
+    assert!(new_window.initials == accepted);
+    // Reusing an already-open window refreshes its old asset when choosing the tool.
+    older_window.set_option("language", "en").unwrap();
+    assert!(older_window.execute("sign.off.change"));
+    assert!(older_window.initials == accepted);
+    // Saving a full signature in that window must not overwrite the updated initials.
+    older_window.update_saved_signature(false, Some(SavedSig::Typed("Full signature".into()))).unwrap();
+    new_window.connect_signing_assets(&directory).unwrap();
+    assert!(new_window.initials == accepted);
+    assert_eq!(new_window.signature, Some(SavedSig::Typed("Full signature".into())));
+    // Removal is authoritative too: stale preferences cannot resurrect deleted initials.
+    older_window.update_saved_signature(true, None).unwrap();
+    new_window.restore(&old_snapshot);
+    new_window.connect_signing_assets(&directory).unwrap();
+    assert!(new_window.initials.is_none());
+    // An unreadable asset file is refused and preserved, not replaced with stale data.
+    let path = directory.join("signing-assets.json");
+    std::fs::write(&path, b"{damaged").unwrap();
+    assert!(new_window.update_saved_signature(true, accepted).is_err());
+    assert!(new_window.initials.is_none());
+    assert_eq!(std::fs::read(path).unwrap(), b"{damaged");
+    std::fs::remove_dir_all(directory).unwrap();
+}

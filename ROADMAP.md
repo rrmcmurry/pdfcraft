@@ -1,5 +1,7 @@
 # PdfCraft roadmap
 
+- **2026-10-15 (McMurryPDF initials persistence):** Unreleased fix saves accepted initials/signatures immediately in shared user settings; new windows and stale window exits no longer lose captured initials. Regression covers capture, immediate reopen, stale preferences, removal and corrupt storage; sandbox review build prepared.
+
 - **2026-10-15 (McMurryPDF trays):** Removed incidental tray opening from annotation and editing tools, document opening/navigation settings, and signing completion. Deleted obsolete close-suppression flags; explicit tray/workspace choices remain. Focused annotation and document-open UI regressions cover closed and manually opened trays.
 
 **Stage: alpha** · next: beta, ~26% (ready for real work 49% → 75%) and ~400–700 h away

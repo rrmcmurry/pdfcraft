@@ -345,6 +345,11 @@ fn app_creator<'a>(
         if let Some(json) = cc.storage.and_then(|s| s.get_string("pdfcraft").or_else(|| s.get_string(LEGACY_STORAGE_KEY))) {
             app.restore(&json);
         }
+        if let Some(directory) = settings_dir()
+            && let Err(error) = app.connect_signing_assets(&directory)
+        {
+            app.notify(format!("Could not open saved signatures and initials: {error}"));
+        }
         app.document_window_source = Some(Box::new(|path, tool| {
             let executable = std::env::current_exe().map_err(|e| e.to_string())?;
             let mut command = std::process::Command::new(executable);
