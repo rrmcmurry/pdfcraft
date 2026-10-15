@@ -24,6 +24,8 @@ Final source checks: six updater/portable UI tests passed; the real Windows shar
 
 Keep internal probe 0.8.0 artifacts separate from `dist/mcmurry/release-testing`; only the actual 0.8.1 release goes to GitHub. The office installation/shortcut/default remain unchanged; install and migrate them deliberately when ready. No recurring automation was created.
 
+Published: [McMurryPDF 0.8.1 testing](https://github.com/rrmcmurry/pdfcraft/releases/tag/mcmurrypdf-v0.8.1-testing), tagged at `85976ac87de48d546cfe2b994761d00a0e0063f7`. Five uploaded assets matched local SHA-256 digests and sizes. The actual signed 0.8.1 package then checked the live GitHub feed headlessly with no local-source override and returned `Current`, version 0.8.1. Source PR #1 remains a draft; main was not pushed or merged. Build manifest distinguishes the original dirty working-tree build base from its reviewed source snapshot commit.
+
 ## Completed and locally verified
 
 - McMurryPDF / McMurry Software branding, original ampersand logo, independent settings and recovery namespace, fork-owned help/update URLs, and removal of restricted upstream trademark artwork while preserving copyright and license notices.
