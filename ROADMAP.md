@@ -1,6 +1,6 @@
 # PdfCraft roadmap
 
-- **2026-10-16 (McMurryPDF opening zoom, unreleased):** Fit to Width/Page override embedded zoom; Default follows the PDF or fits width without one. Preferences flush when closed. All 36 view tests and native sandbox preference-close/new-process checks pass; installed 0.8.3 remains unchanged.
+- **2026-10-16 (McMurryPDF opening zoom, 0.8.4):** Fit to Width/Page override embedded zoom; Default follows the PDF or fits width without one. Preferences flush when closed. All 36 view tests and native sandbox preference-close/new-process checks pass; owner approved the installed local test, then signed 0.8.4 updates/Setup/thumbnails and public-feed checks passed and the testing release was published.
 
 - **2026-10-15 (McMurryPDF initials persistence):** 0.8.3 saves accepted initials/signatures immediately in shared user settings; new windows and stale window exits no longer lose captured initials. Regression covers capture, immediate reopen, stale preferences, removal and corrupt storage; signed update, installed GUI capture/reopen/placement and fresh thumbnails passed in Sandbox; release published and real desktop About confirmed 0.8.3.
 
