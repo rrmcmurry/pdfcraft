@@ -2,6 +2,10 @@
 
 McMurry Software's office PDF workbench, based on PdfCraft. Required upstream copyrights and third-party notices remain in LICENSE-MIT, LICENSE-APACHE, NOTICE and ATTRIBUTION.md. The ampersand document logo was created for this fork from the user-owned McMurry identity.
 
+## Opening zoom
+
+Preferences > Documents and view offers **Fit to Width**, **Fit to Page**, and **Default**. Either fit choice overrides the PDF's embedded opening zoom. Default follows the embedded zoom, falling back to fit width when none is set. The opening page and layout remain independent. Closing Preferences starts saving immediately so newly opened document windows receive the accepted choice. Automation/launch options use `default-zoom=default`, `fit-width` or `fit-page`; existing percentage values remain supported and override embedded zoom.
+
 ## Tray behavior
 
 Annotation tools, page edits, newly opened PDFs (including PDF navigation preferences), and completed signing preserve tray visibility. Fresh profiles start with trays closed; explicitly opened trays and saved workspace visibility are preserved. Open a tray through its button/menu, or request a workspace/chooser such as Stamps, Prepare a form, or Search.

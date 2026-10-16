@@ -159,8 +159,7 @@ pub fn parse_display_token(value: &str) -> Option<(PageLayout, bool)> {
     }
 }
 
-/// How a newly opened document is shown (Preferences ▸ Documents and view). A PDF that asks
-/// for its own layout or zoom gets that instead.
+/// How a newly opened document is shown (Preferences ▸ Documents and view).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ViewDefaults {
     pub layout: PageLayout,
@@ -170,6 +169,8 @@ pub struct ViewDefaults {
     pub fit: Fit,
     /// The zoom with [`Fit::None`] (1.0 = 100%).
     pub zoom: f32,
+    /// Follow the PDF's opening zoom; otherwise the chosen fit or percentage wins.
+    pub document_zoom: bool,
     /// Highlight existing fields: a preference in Acrobat, so it carries over to the next
     /// document and the next session.
     pub highlight_fields: bool,
@@ -178,13 +179,16 @@ pub struct ViewDefaults {
 impl Default for ViewDefaults {
     fn default() -> Self {
         // Single page, scrolling continuously at fit width: the earlier "continuous" default.
-        Self { layout: PageLayout::Single, continuous: true, fit: Fit::Width, zoom: 1.0, highlight_fields: false }
+        Self { layout: PageLayout::Single, continuous: true, fit: Fit::Width, zoom: 1.0, document_zoom: true, highlight_fields: false }
     }
 }
 
 impl ViewDefaults {
-    /// The zoom as settings and view options name it: `fit-width`, `fit-page` or a percentage.
+    /// The zoom as settings and view options name it: `default`, `fit-width`, `fit-page` or a percentage.
     pub fn zoom_name(&self) -> String {
+        if self.document_zoom {
+            return "default".into();
+        }
         match self.fit {
             Fit::Page => "fit-page".into(),
             Fit::None => format!("{}%", (self.zoom * 100.0).round()),
@@ -196,6 +200,9 @@ impl ViewDefaults {
     /// for anything else, including a percentage outside the 8–6400% the view can show.
     pub fn with_zoom(self, name: &str) -> Option<Self> {
         let name = name.trim();
+        if name.eq_ignore_ascii_case("default") {
+            return Some(Self { fit: Fit::Width, zoom: 1.0, document_zoom: true, ..self });
+        }
         let (fit, zoom) = if name.eq_ignore_ascii_case("fit-width") {
             (Fit::Width, self.zoom)
         } else if name.eq_ignore_ascii_case("fit-page") {
@@ -204,7 +211,7 @@ impl ViewDefaults {
             let percent = name.strip_suffix('%').unwrap_or(name).trim().parse::<f32>().ok().filter(|p| (8.0..=6400.0).contains(p))?;
             (Fit::None, percent / 100.0)
         };
-        Some(Self { fit, zoom, ..self })
+        Some(Self { fit, zoom, document_zoom: false, ..self })
     }
 }
 
@@ -574,8 +581,8 @@ impl DocView {
         v
     }
 
-    /// A view of a newly opened document, shown as `defaults` say. Opening a file then applies
-    /// any layout or zoom the PDF itself asks for.
+    /// A view of a newly opened document, shown as `defaults` say. The PDF's opening zoom
+    /// applies only when Default is selected; its opening layout is independent.
     pub fn new(id: DocId, info: &DocInfo, defaults: ViewDefaults) -> Self {
         Self {
             id,

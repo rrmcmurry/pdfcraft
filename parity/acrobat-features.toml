@@ -9828,8 +9828,8 @@ milestone = "M14"
 status = "partial"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/view.rs::default_page_display_is_used_for_new_documents", "crates/ui-egui/tests/view.rs::default_zoom_is_used_for_new_documents", "crates/ui-egui/tests/view.rs::preferences_set_the_default_zoom"]
-notes = "Preferences ▸ Documents and view: Default page display and Default zoom (Fit to width, Zoom to page level or a percentage) for every new tab; a PDF that asks for a layout or zoom gets it. Missing: Acrobat's resolution, rendering and page-content options"
+evidence = ["crates/ui-egui/tests/view.rs::default_page_display_is_used_for_new_documents", "crates/ui-egui/tests/view.rs::default_zoom_is_used_for_new_documents", "crates/ui-egui/tests/view.rs::preferences_set_the_default_zoom", "crates/ui-egui/tests/view.rs::preferred_opening_zoom_overrides_embedded_zoom_unless_default_is_selected"]
+notes = "Preferences ▸ Documents and view: Default page display and Default zoom (Fit to Width, Fit to Page, Default) for new documents. Explicit fit choices override embedded opening zoom; Default honors it and falls back to width if absent. Existing percentage options remain supported. Opening page/layout are independent. Preferences save when dismissed so new windows receive accepted choices. Missing: Acrobat's resolution, rendering and page-content options"
 
 [[feature]]
 id = "misc.prefs-documents"

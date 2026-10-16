@@ -426,10 +426,10 @@ fn default_zoom_is_used_for_new_documents() {
     h.state_mut().set_option("default-zoom", "150%").unwrap();
     h.state_mut().open_bytes("other.pdf", None, PAGES.to_vec()).expect("opens");
     assert_eq!(fit_zoom(h.state(), 2), (Fit::None, 1.5));
-    // A PDF that asks for a zoom gets it.
+    // An explicit percentage overrides the PDF opening zoom too.
     let asks = String::from_utf8_lossy(PAGES).replace("/Pages 2 0 R >>", "/Pages 2 0 R /OpenAction [3 0 R /Fit] >>");
     h.state_mut().open_bytes("asks.pdf", None, asks.into_bytes()).expect("opens");
-    assert_eq!(h.state().views[3].fit, Fit::Page);
+    assert_eq!(fit_zoom(h.state(), 3), (Fit::None, 1.5));
     // Typos and zooms the view can't show are refused.
     for bad in ["huge", "fit-height", "5", "9000%"] {
         assert!(h.state_mut().set_option("default-zoom", bad).is_err(), "{bad}");
@@ -450,12 +450,19 @@ fn preferences_set_the_default_zoom() {
     let mut h = harness(&[]);
     assert!(h.state_mut().execute("app.preferences"));
     h.run_steps(3);
-    h.get_by_label("Zoom to page level").scroll_to_me();
+    h.get_by_label("Fit to Page").scroll_to_me();
     h.run_steps(4);
-    h.get_by_label("Zoom to page level").click();
+    h.get_by_label("Fit to Page").click();
     h.run_steps(2);
+    assert!(!h.state().view_defaults.document_zoom);
+    if let Ok(path) = std::env::var("MCMURRY_ZOOM_SHOT") {
+        h.render().unwrap().save(path).unwrap();
+    }
     assert!(h.state_mut().execute("create.blank"));
     assert_eq!(h.state().views[1].fit, pdfcraft_ui_egui::canvas::Fit::Page);
+    h.get_by_label("Default").click();
+    h.run_steps(2);
+    assert!(h.state().view_defaults.document_zoom);
 }
 
 #[test]
@@ -1099,4 +1106,40 @@ fn sidebar_collapse_and_resize_preserves_scroll_position() {
     let vp_reopened = v.viewport_rect();
     let rel_y_reopened = rect_reopened.min.y - vp_reopened.min.y;
     assert!((rel_y_reopened - rel_y_before).abs() < 1.0, "page 2 scroll position preserved on reopen: before {rel_y_before}, after {rel_y_reopened}");
+}
+
+#[test]
+fn preferred_opening_zoom_overrides_embedded_zoom_unless_default_is_selected() {
+    use pdfcraft_ui_egui::canvas::Fit;
+    for destination in ["/Fit", "/FitH 400", "/XYZ null null 2"] {
+        let pdf = String::from_utf8_lossy(PAGES).replace("/Pages 2 0 R >>", &format!("/Pages 2 0 R /OpenAction [4 0 R {destination}] >>"));
+        for (choice, expected) in [
+            ("fit-width", Fit::Width),
+            ("fit-page", Fit::Page),
+            (
+                "default",
+                match destination {
+                    "/Fit" => Fit::Page,
+                    "/FitH 400" => Fit::Width,
+                    _ => Fit::None,
+                },
+            ),
+        ] {
+            let mut app = PdfCraftApp::new();
+            app.set_option("default-zoom", choice).unwrap();
+            // A new document window restores the saved preference before opening the PDF.
+            let mut fresh = PdfCraftApp::new();
+            fresh.restore(&app.persist());
+            fresh.open_bytes("embedded.pdf", None, pdf.as_bytes().to_vec()).unwrap();
+            assert_eq!(fresh.views[0].fit, expected, "{choice} / {destination}");
+            assert_eq!(fresh.views[0].current, 1, "zoom preference must preserve the opening page");
+            if choice == "default" && expected == Fit::None {
+                assert_eq!(fresh.views[0].zoom, 2.0);
+            }
+        }
+    }
+    let mut app = PdfCraftApp::new();
+    app.set_option("default-zoom", "default").unwrap();
+    app.open_bytes("no-embedded-zoom.pdf", None, PAGES.to_vec()).unwrap();
+    assert_eq!(app.views[0].fit, Fit::Width);
 }

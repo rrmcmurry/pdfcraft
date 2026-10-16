@@ -1094,14 +1094,16 @@ impl PdfCraftApp {
                 (view.layout, view.continuous, view.cover) = (canvas::PageLayout::TwoUp, true, true);
             }
         }
-        match v.magnification {
-            // The view opened at the default zoom already.
-            M::Default => {}
-            M::ActualSize => view.set_zoom(1.0),
-            M::Percent(p) => view.set_zoom((p / 100.0) as f32),
-            M::FitPage | M::FitVisible => view.fit = canvas::Fit::Page,
-            M::FitWidth => view.fit = canvas::Fit::Width,
-            M::FitHeight => view.fit = canvas::Fit::Height,
+        if self.view_defaults.document_zoom {
+            match v.magnification {
+                // The view opened at the default zoom already.
+                M::Default => {}
+                M::ActualSize => view.set_zoom(1.0),
+                M::Percent(p) => view.set_zoom((p / 100.0) as f32),
+                M::FitPage | M::FitVisible => view.fit = canvas::Fit::Page,
+                M::FitWidth => view.fit = canvas::Fit::Width,
+                M::FitHeight => view.fit = canvas::Fit::Height,
+            }
         }
         if v.page > 0 && v.page < pages {
             view.go_to_page(v.page);
@@ -2470,7 +2472,7 @@ impl PdfCraftApp {
             }
             ("default-zoom", _) => {
                 self.view_defaults =
-                    self.view_defaults.with_zoom(value).ok_or("default-zoom must be fit-width, fit-page or a percentage from 8 to 6400")?;
+                    self.view_defaults.with_zoom(value).ok_or("default-zoom must be default, fit-width, fit-page or a percentage from 8 to 6400")?;
             }
             ("tools-side", _) => self.docking.set_tools_on_right(match value {
                 "left" => false,
@@ -2946,7 +2948,7 @@ impl eframe::App for PdfCraftApp {
         self.process_picked();
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         i18n::set_current(i18n::Lang::from_pref(&self.language));
         // Fonts registered via set_fonts only take effect next frame; named families would panic now.
@@ -2979,7 +2981,7 @@ impl eframe::App for PdfCraftApp {
                     }
                 },
             );
-            dialogs::show(self, &ctx);
+            self.show_dialogs(&ctx, frame);
             // Notices too: a refused field value or a failed save must be seen in full screen.
             self.show_progress(&ctx);
             widgets::toast(self, &ctx);
@@ -3020,7 +3022,7 @@ impl eframe::App for PdfCraftApp {
         });
         self.process_pending_edits();
         palette::show(self, &ctx);
-        dialogs::show(self, &ctx);
+        self.show_dialogs(&ctx, frame);
         self.show_progress(&ctx);
         widgets::toast(self, &ctx);
         self.finish_render_frame(&ctx);
@@ -3028,6 +3030,19 @@ impl eframe::App for PdfCraftApp {
 }
 
 impl PdfCraftApp {
+    fn show_dialogs(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        let preferences = self.dialog == Some(Dialog::Preferences);
+        dialogs::show(self, ctx);
+        // A new document window must see accepted preferences without waiting for autosave.
+        if preferences
+            && self.dialog != Some(Dialog::Preferences)
+            && let Some(storage) = frame.storage_mut()
+        {
+            eframe::App::save(self, storage);
+            storage.flush();
+        }
+    }
+
     fn finish_render_frame(&mut self, ctx: &egui::Context) {
         // The Combine grid's thumbnails, whichever tab shows (renders under way still finish).
         self.combine_thumbs_frame(ctx);

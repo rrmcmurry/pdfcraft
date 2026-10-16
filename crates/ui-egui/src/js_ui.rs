@@ -361,21 +361,24 @@ pub(crate) fn preferences_body(ui: &mut egui::Ui, app: &mut PdfCraftApp, t: &Tok
         ui.add(widgets::checkbox(&mut defaults.continuous, tl!("Continuous scrolling")));
     });
     ui.horizontal(|ui| {
-        use crate::canvas::Fit;
         ui.label(tl!("Default zoom"));
-        widgets::radio_value(ui, &mut defaults.fit, Fit::Width, tl!("Fit to width"));
-        widgets::radio_value(ui, &mut defaults.fit, Fit::Page, tl!("Zoom to page level"));
-        widgets::radio_value(ui, &mut defaults.fit, Fit::None, tl!("Custom"));
-        // Editing the percentage selects Custom.
-        let mut percent = defaults.zoom * 100.0;
-        if ui.add(egui::DragValue::new(&mut percent).range(8.0..=6400.0).max_decimals(0).suffix("%")).changed() {
-            (defaults.fit, defaults.zoom) = (Fit::None, percent / 100.0);
+        let previous = defaults.zoom_name();
+        let mut choice = previous.as_str();
+        widgets::radio_value(ui, &mut choice, "fit-width", tl!("Fit to Width"));
+        widgets::radio_value(ui, &mut choice, "fit-page", tl!("Fit to Page"));
+        widgets::radio_value(ui, &mut choice, "default", tl!("Default"));
+        if choice != previous
+            && let Some(updated) = defaults.with_zoom(choice)
+        {
+            *defaults = updated;
         }
     });
     ui.label(
-        egui::RichText::new(tl!("Used when a PDF doesn't ask for a layout or zoom. Continuous scrolling never snaps between pages."))
-            .small()
-            .color(t.text_muted),
+        egui::RichText::new(tl!(
+            "Fit to Width and Fit to Page override the PDF's opening zoom. Default follows the PDF, or fits width if none is set."
+        ))
+        .small()
+        .color(t.text_muted),
     );
     ui.horizontal(|ui| {
         ui.label(tl!("Units"));
