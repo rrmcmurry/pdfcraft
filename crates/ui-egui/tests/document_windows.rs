@@ -126,3 +126,30 @@ fn checkbox_is_available_and_document_tab_is_hidden_when_off() {
     assert!(h.query_by_label("Open documents as tabs in the same window").is_some());
     assert!(h.query_by_label("first.pdf").is_none());
 }
+
+#[test]
+fn os_open_focuses_only_the_window_that_receives_the_file() {
+    use pdfcraft_ui_egui::OsEvent;
+    for mode in ["tabs", "window", "failure", "empty"] {
+        let mut app = one_document();
+        let path = std::env::temp_dir().join(format!("mcmurry-focus-{}-{mode}.pdf", std::process::id()));
+        let bytes = app.session.create_blank(300.0, 400.0, 1).unwrap();
+        std::fs::write(&path, bytes.as_slice()).unwrap();
+        app.set_option("open-tabs", if mode == "tabs" { "on" } else { "off" }).unwrap();
+        let failed = mode == "failure";
+        app.document_window_source = Some(Box::new(move |_, _| if failed { Err("test launch failure".into()) } else { Ok(()) }));
+        let mut h = Harness::builder().with_size(egui::vec2(1000.0, 700.0)).build_eframe(|_| app);
+        h.run_steps(3);
+        let mut paths = Some(if mode == "empty" { Vec::new() } else { vec![path.to_string_lossy().into_owned()] });
+        h.state_mut().os_events = Some(Box::new(move || paths.take().map(|paths| vec![OsEvent::Open(paths)]).unwrap_or_default()));
+        h.step();
+        let focus = h.output().viewport_output.values().any(|v| v.commands.iter().any(|c| matches!(c, egui::ViewportCommand::Focus)));
+        let restored = h.output().viewport_output.values().any(|v| v.commands.iter().any(|c| matches!(c, egui::ViewportCommand::Minimized(false))));
+        assert_eq!((focus, restored), (mode == "tabs" || mode == "failure", mode == "tabs" || mode == "failure"), "{mode}");
+        if mode == "window" {
+            assert_eq!(h.state().views.len(), 1);
+            assert_eq!(h.state().last_window_open.as_deref(), path.to_str());
+        }
+        std::fs::remove_file(path).unwrap();
+    }
+}

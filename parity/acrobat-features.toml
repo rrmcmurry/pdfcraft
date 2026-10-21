@@ -22,8 +22,8 @@ milestone = "M3"
 status = "partial"
 commands = ["app.preferences", "file.open"]
 tools = []
-evidence = ["crates/ui-egui/tests/document_windows.rs::preference_round_trips_and_old_settings_keep_tabs", "crates/ui-egui/tests/document_windows.rs::separate_window_dispatch_keeps_the_existing_document", "crates/ui-egui/tests/document_windows.rs::failed_window_launch_preserves_the_open_document_and_reports_failure", "crates/ui-egui/tests/document_windows.rs::generated_document_is_transferred_without_replacing_the_current_document"]
-notes = "McMurryPDF desktop fork: persisted open-tabs preference, controllable through opt-in ui.set/ui.state/ui.open. Existing multi-document sessions and Combine remain accessible. Browser retains tabs. Specialized internal signed-revision and remote-destination views still use existing tab handling. No engine tool: native window policy belongs to the desktop shell."
+evidence = ["crates/ui-egui/tests/document_windows.rs::preference_round_trips_and_old_settings_keep_tabs", "crates/ui-egui/tests/document_windows.rs::separate_window_dispatch_keeps_the_existing_document", "crates/ui-egui/tests/document_windows.rs::failed_window_launch_preserves_the_open_document_and_reports_failure", "crates/ui-egui/tests/document_windows.rs::generated_document_is_transferred_without_replacing_the_current_document", "crates/ui-egui/tests/document_windows.rs::os_open_focuses_only_the_window_that_receives_the_file", "apps/pdfcraft/src/single_instance.rs::handoff_only_queues_files_until_the_ui_has_chosen_the_destination_window"]
+notes = "McMurryPDF desktop fork: persisted open-tabs preference, controllable through opt-in ui.set/ui.state/ui.open. Incoming OS file events activate the receiving window after routing, without pulling the old PDF forward for separate-window opens. Existing multi-document sessions and Combine remain accessible. Browser retains tabs. Specialized internal signed-revision and remote-destination views still use existing tab handling. No engine tool: native window policy belongs to the desktop shell."
 
 [[feature]]
 id = "core.open-pdf"

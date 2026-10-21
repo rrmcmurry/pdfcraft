@@ -2888,7 +2888,17 @@ impl eframe::App for PdfCraftApp {
         for e in os_events {
             match e {
                 #[cfg(not(target_arch = "wasm32"))]
-                OsEvent::Open(paths) => paths.iter().for_each(|p| self.open_path(p)),
+                OsEvent::Open(paths) => {
+                    for path in &paths {
+                        self.open_path(path);
+                    }
+                    // A separate document window owns activation when the last file was
+                    // forwarded there. Focusing this window would pull the old PDF forward.
+                    if !paths.is_empty() && self.last_window_open.is_none() {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                    }
+                }
                 #[cfg(target_arch = "wasm32")]
                 OsEvent::Open(_) => {}
                 // Like closing the window: `guard_quit` asks about unsaved changes.
