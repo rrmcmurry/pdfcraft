@@ -1,6 +1,6 @@
 # PdfCraft roadmap
 
-- **2026-10-21 (McMurryPDF 0.8.5 release preparation):** owner approved the installed file-opening focus fix; bumped the workspace version without dependency changes for signed testing-channel distribution. Installer/update validation pending.
+- **2026-10-21 (McMurryPDF 0.8.5 release preparation):** owner approved the installed file-opening focus fix; bumped the workspace version without dependency changes for signed testing-channel distribution. Optimized build, signed updates from published/local 0.8.4, fresh Setup, packaged opening/rendering and independent thumbnails passed; 0.8.5 published with verified assets and public-feed discovery.
 
 - **2026-10-21 (McMurryPDF file-opening focus):** route incoming files before choosing activation; separate-window opens no longer focus the old PDF. Sixteen focused tests, scoped Clippy and web checks pass. Signed local GUI installed and two native Explorer launches verified the second PDF foreground with the first retained; release held for owner feedback.
 
