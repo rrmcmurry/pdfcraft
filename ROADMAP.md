@@ -1,5 +1,7 @@
 # PdfCraft roadmap
 
+- **2026-10-21 (McMurryPDF 0.8.5 release preparation):** owner approved the installed file-opening focus fix; bumped the workspace version without dependency changes for signed testing-channel distribution. Installer/update validation pending.
+
 - **2026-10-21 (McMurryPDF file-opening focus):** route incoming files before choosing activation; separate-window opens no longer focus the old PDF. Sixteen focused tests, scoped Clippy and web checks pass. Signed local GUI installed and two native Explorer launches verified the second PDF foreground with the first retained; release held for owner feedback.
 
 - **2026-10-16 (McMurryPDF opening zoom, 0.8.4):** Fit to Width/Page override embedded zoom; Default follows the PDF or fits width without one. Preferences flush when closed. All 36 view tests and native sandbox preference-close/new-process checks pass; owner approved the installed local test, then signed 0.8.4 updates/Setup/thumbnails and public-feed checks passed and the testing release was published.
