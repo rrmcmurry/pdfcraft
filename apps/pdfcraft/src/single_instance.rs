@@ -75,20 +75,17 @@ impl Server {
     }
 
     /// The queue the UI drains every frame (`PdfCraftApp::os_events`). Files that arrived before
-    /// the window existed are in the first batch. A batch also brings the window forward, as the
-    /// new window it replaces would have been.
+    /// the window existed are in the first batch. The UI decides which window to activate
+    /// after routing each file to a tab or a separate document window.
     pub fn connect(&self, ctx: &egui::Context) -> OsEventsFn {
         let wake = ctx.clone();
         self.inbox.lock().unwrap_or_else(PoisonError::into_inner).wake = Some(Box::new(move || wake.request_repaint()));
         let inbox = Arc::clone(&self.inbox);
-        let ctx = ctx.clone();
         Box::new(move || {
             let paths = std::mem::take(&mut inbox.lock().unwrap_or_else(PoisonError::into_inner).paths);
             if paths.is_empty() {
                 return Vec::new();
             }
-            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
-            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
             vec![OsEvent::Open(paths)]
         })
     }
@@ -145,7 +142,7 @@ fn socket_path() -> Option<std::path::PathBuf> {
     // own name so it never hands files to an installed copy (which keeps its settings elsewhere).
     // Never the portable folder itself: it may sit where other accounts can write (`C:\Tools`).
     let name = if pdfcraft_ui_egui::portable::data_dir().is_some() { format!("portable-{name}") } else { name };
-    std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty()).map(|d| std::path::PathBuf::from(d).join("PdfCraft").join(name))
+    std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty()).map(|d| std::path::PathBuf::from(d).join("McMurryPDF").join(name))
 }
 
 /// The socket's file name for a Windows session (`SESSIONNAME`: `Console`, `RDP-Tcp#3`…). The
@@ -333,7 +330,7 @@ mod tests {
     }
 
     #[test]
-    fn delivered_files_reach_the_ui_once_wake_it_and_bring_the_window_forward() {
+    fn delivered_files_reach_the_ui_once_and_wake_it() {
         let server = Server::new();
         // Before the window exists: queued, nothing to wake yet.
         server.deliver(vec!["a.pdf".into()]);
@@ -343,6 +340,24 @@ mod tests {
         let events = poll();
         assert!(matches!(events.as_slice(), [OsEvent::Open(p)] if p == &["a.pdf", "b.pdf"]));
         assert!(poll().is_empty(), "each file is delivered once");
+    }
+
+    #[test]
+    fn handoff_only_queues_files_until_the_ui_has_chosen_the_destination_window() {
+        let server = Server::new();
+        let ctx = egui::Context::default();
+        let mut poll = server.connect(&ctx);
+        server.deliver(vec!["second.pdf".into()]);
+        let output = ctx.run_ui(Default::default(), |_| {
+            assert!(matches!(poll().as_slice(), [OsEvent::Open(paths)] if paths == &["second.pdf"]));
+        });
+        assert!(
+            output.viewport_output.values().all(|viewport| viewport
+                .commands
+                .iter()
+                .all(|command| { !matches!(command, egui::ViewportCommand::Focus | egui::ViewportCommand::Minimized(false)) })),
+            "receiving a file must not activate the old window before the UI routes it"
+        );
     }
 
     #[cfg(windows)]

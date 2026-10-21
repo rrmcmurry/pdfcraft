@@ -97,8 +97,11 @@ impl PdfCraftApp {
         Some(self.open_created_bytes(&format!("{}.pdf", stem(name)), created.map_err(|e| e.to_string())))
     }
 
-    fn open_created_bytes(&mut self, name: &str, created: Result<Arc<Vec<u8>>, String>) -> Result<(), String> {
+    pub fn open_created_bytes(&mut self, name: &str, created: Result<Arc<Vec<u8>>, String>) -> Result<(), String> {
         let bytes = created?;
+        if self.route_created_window(name, &bytes)? {
+            return Ok(());
+        }
         let id = self.session.open_new(name, bytes).map_err(|e| e.to_string())?;
         // The reading-colours preference is app-wide: the newly created document starts with it.
         self.session.set_reading_colors(id, self.reading_colors);
@@ -106,6 +109,18 @@ impl PdfCraftApp {
         self.views.push(crate::DocView::new(id, info, self.view_defaults));
         self.active = Some(self.views.len() - 1);
         Ok(())
+    }
+
+    /// Returns true only when a desktop launcher accepted this generated document.
+    pub(crate) fn route_created_window(&self, name: &str, bytes: &[u8]) -> Result<bool, String> {
+        if !self.open_documents_in_tabs
+            && !self.views.is_empty()
+            && let Some(launch) = &self.created_document_window_source
+        {
+            launch(name, bytes)?;
+            return Ok(true);
+        }
+        Ok(false)
     }
 
     /// Create ▸ Clipboard: a new document from the image (one page, its size) or the text on

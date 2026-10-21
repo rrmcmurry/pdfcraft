@@ -846,18 +846,32 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                 return;
             }
             Dialog::Signature => {
-                let (apply, cancel, browse) =
-                    crate::fill_sign::signature_pad(ui, &t, &mut app.signature_draft, &mut app.signature_preview, &mut app.signature_photo);
+                let can_capture = app.active.and_then(|i| app.views.get(i)).and_then(|v| app.session.get(v.id)).is_some_and(|d| d.allows_copying());
+                let (apply, cancel, browse, capture) = crate::fill_sign::signature_pad(
+                    ui,
+                    &t,
+                    &mut app.signature_draft,
+                    &mut app.signature_preview,
+                    &mut app.signature_photo,
+                    can_capture,
+                );
+                if capture {
+                    close = true;
+                    link_command = Some("sign.off.capture");
+                    return;
+                }
                 if browse {
                     app.pick_signature_image();
                 }
                 if apply {
+                    if let Err(error) = app.update_saved_signature(app.signature_draft.initials, app.signature_draft.saved()) {
+                        app.notify_fmt("Could not save signature or initials: {e}", &[("e", &error)]);
+                        return;
+                    }
                     let d = std::mem::take(&mut app.signature_draft);
                     let tool = if d.initials {
-                        app.initials = d.saved();
-                        crate::fill_sign::FillTool::Initials
+                        if d.signoff { crate::fill_sign::FillTool::InitialsDate } else { crate::fill_sign::FillTool::Initials }
                     } else {
-                        app.signature = d.saved();
                         crate::fill_sign::FillTool::Signature
                     };
                     app.quick_tool = crate::QuickTool::Fill(tool);
@@ -1007,7 +1021,7 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     ui.label(egui::RichText::new(tl!("Recover unsaved documents?")).font(theme::semibold(18.0)));
                 });
                 ui.add_space(6.0);
-                ui.label(tl!("PdfCraft didn't shut down normally. These documents had changes that were autosaved:"));
+                ui.label(tl!("McMurryPDF didn't shut down normally. These documents had changes that were autosaved:"));
                 ui.add_space(8.0);
                 let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
                 egui::Grid::new("recoverable").num_columns(2).spacing([18.0, 6.0]).show(ui, |ui| {
@@ -1096,9 +1110,9 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                     2 => crate::credits::models_ui(ui),
                     _ => {
                         ui.horizontal(|ui| {
-                            widgets::artcraft_mark(ui, 40.0);
+                            widgets::mcmurry_mark(ui, 40.0);
                             ui.vertical(|ui| {
-                                ui.label(egui::RichText::new("PdfCraft").font(theme::semibold(20.0)));
+                                ui.label(egui::RichText::new("McMurryPDF").font(theme::semibold(20.0)));
                                 ui.label(crate::i18n::fmt(tl!("Version {v}"), &[("v", &pdfcraft_engine::build_info::version())]));
                             });
                         });
@@ -1113,9 +1127,14 @@ fn dialogs(app: &mut PdfCraftApp, ctx: &egui::Context) {
                         );
                         ui.add_space(12.0);
                         ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new(tl!("Part of")).color(t.text_muted));
-                            widgets::artcraft_logo(ui, 16.0);
+                            ui.label(egui::RichText::new("By").color(t.text_muted));
+                            widgets::mcmurry_logo(ui, 16.0);
                         });
+                        ui.label(
+                            egui::RichText::new("Based on PdfCraft by the ArtCraft team and contributors. MIT OR Apache-2.0.")
+                                .small()
+                                .color(t.text_muted),
+                        );
                         ui.add_space(6.0);
                         if let Some(cmd) = widgets::community_links(ui) {
                             link_command = Some(cmd);

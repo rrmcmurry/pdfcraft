@@ -119,6 +119,12 @@ impl PdfCraftApp {
                     {
                         view.comments.selected = None;
                     }
+                    Edit::AddCustomStamp { .. }
+                        if matches!(self.quick_tool, crate::QuickTool::Mark | crate::QuickTool::Fill(crate::fill_sign::FillTool::InitialsDate)) =>
+                    {
+                        view.comments.selected = None;
+                        view.comments.reveal = false;
+                    }
                     Edit::AddAnnotation(a) => {
                         // Select the new comment (appended last among the page's comments).
                         let newest = info.annotations.iter().filter(|x| x.page == a.page && x.in_reply_to.is_none()).map(|x| x.index).max();
@@ -1009,7 +1015,6 @@ impl PdfCraftApp {
                 self.apply_edit(Edit::AddBookmark { parent: vec![], index: n, title: "Untitled".into(), page: current });
                 // Like Acrobat: the new bookmark starts in rename mode.
                 self.bookmark_rename = Some((vec![n], "Untitled".into()));
-                self.right = Some(crate::RightPanel::Bookmarks);
                 return;
             }
             A::StartRename(path) => {
@@ -1039,10 +1044,7 @@ impl PdfCraftApp {
                 let at = parent[parent.len() - 1] + 1;
                 Edit::MoveBookmark { from: path, to_parent: grand, index: at }
             }
-            A::FromStructure => {
-                self.right = Some(crate::RightPanel::Bookmarks);
-                Edit::BookmarksFromStructure
-            }
+            A::FromStructure => Edit::BookmarksFromStructure,
         };
         self.apply_edit(edit);
     }

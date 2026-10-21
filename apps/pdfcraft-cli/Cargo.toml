@@ -21,6 +21,9 @@ pdfcraft-cos = { workspace = true }
 pdfcraft-automation = { workspace = true }
 base64 = "0.22"
 
+[target.'cfg(windows)'.dependencies]
+pdfcraft-platform = { workspace = true }
+
 [target.'cfg(unix)'.dependencies]
 # `geteuid` for `ui`'s control-file owner check: safe, so no `unsafe` libc call here.
 # Already in Cargo.lock through the GUI crates.

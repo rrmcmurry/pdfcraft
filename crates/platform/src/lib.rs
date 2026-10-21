@@ -5,3 +5,6 @@
 
 pub mod desktop_theme;
 pub mod staging;
+/// Installed Windows process coordination for safe package updates.
+#[cfg(windows)]
+pub mod update_session;

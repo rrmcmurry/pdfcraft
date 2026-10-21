@@ -74,6 +74,14 @@ help and feedback: https://discord.gg/artcraft"
 );
 
 fn main() -> ExitCode {
+    #[cfg(windows)]
+    let _update_lease = match pdfcraft_platform::update_session::SessionLease::installed() {
+        Ok(lease) => lease,
+        Err(error) => {
+            let _ = std::io::Write::write_fmt(&mut std::io::stderr(), format_args!("McMurryPDF update coordination: {error}\n"));
+            return ExitCode::FAILURE;
+        }
+    };
     let args: Vec<String> = std::env::args().skip(1).collect();
     // `<command> --help` too; only right after the command, so a later `-h` (a value) still reaches it.
     let command = match args.get(1).map(String::as_str) {
@@ -148,8 +156,8 @@ fn stdout_line(line: std::fmt::Arguments<'_>) -> Result<(), CliError> {
 }
 
 fn version() -> Result<(), CliError> {
-    stdout_line(format_args!("pdfcraft-cli {}", pdfcraft_engine::build_info::version()))?;
-    stdout_line(format_args!("Discord: {}  (help and feedback)", pdfcraft_engine::links::DISCORD))?;
+    stdout_line(format_args!("McMurryPDF CLI {}", pdfcraft_engine::build_info::version()))?;
+    stdout_line(format_args!("Support: {}  (help and feedback)", pdfcraft_engine::links::DISCORD))?;
     stdout_line(format_args!("Web:     {}", pdfcraft_engine::links::APP_PAGE))?;
     stdout_line(format_args!("Source:  {}", pdfcraft_engine::links::GITHUB))?;
     Ok(())

@@ -1,0 +1,4 @@
+LIBRARY McMurryPDFThumbnail
+EXPORTS
+    DllGetClassObject PRIVATE
+    DllCanUnloadNow PRIVATE

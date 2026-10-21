@@ -14,6 +14,18 @@ areas = { A = "core", B = "view", C = "edit", D = "organize", E = "comment", F =
 # ==================================================================================================
 
 [[feature]]
+id = "core.separate-document-windows"
+title = "Preference to open documents in separate desktop windows"
+area = "A"
+tier = "P2"
+milestone = "M3"
+status = "partial"
+commands = ["app.preferences", "file.open"]
+tools = []
+evidence = ["crates/ui-egui/tests/document_windows.rs::preference_round_trips_and_old_settings_keep_tabs", "crates/ui-egui/tests/document_windows.rs::separate_window_dispatch_keeps_the_existing_document", "crates/ui-egui/tests/document_windows.rs::failed_window_launch_preserves_the_open_document_and_reports_failure", "crates/ui-egui/tests/document_windows.rs::generated_document_is_transferred_without_replacing_the_current_document", "crates/ui-egui/tests/document_windows.rs::os_open_focuses_only_the_window_that_receives_the_file", "apps/pdfcraft/src/single_instance.rs::handoff_only_queues_files_until_the_ui_has_chosen_the_destination_window"]
+notes = "McMurryPDF desktop fork: persisted open-tabs preference, controllable through opt-in ui.set/ui.state/ui.open. Incoming OS file events activate the receiving window after routing, without pulling the old PDF forward for separate-window opens. Existing multi-document sessions and Combine remain accessible. Browser retains tabs. Specialized internal signed-revision and remote-destination views still use existing tab handling. No engine tool: native window policy belongs to the desktop shell."
+
+[[feature]]
 id = "core.open-pdf"
 title = "Open PDF files"
 area = "A"
@@ -3524,8 +3536,8 @@ milestone = "M3"
 status = "shipped"
 commands = ["comment.list"]
 tools = ["comment_list"]
-evidence = ["crates/ui-egui/tests/ui.rs::opening_a_pdf_shows_comments_and_bookmarks", "crates/ui-egui/tests/comments.rs::the_panel_posts_comments_and_replies"]
-notes = "cards grouped by page with replies, status badges, selection, reply box and an Add a comment box"
+evidence = ["crates/ui-egui/tests/ui.rs::opening_a_pdf_shows_comments_and_bookmarks", "crates/ui-egui/tests/comments.rs::the_panel_posts_comments_and_replies", "crates/ui-egui/tests/comments.rs::a_closed_comments_panel_stays_closed_when_picking_comment_tools"]
+notes = "cards grouped by page with replies, status badges, selection, reply box and an Add a comment box; McMurryPDF preserves tray visibility when annotating or opening PDFs; trays open through explicit user actions"
 
 [[feature]]
 id = "comment.appearance-generation"
@@ -4090,6 +4102,30 @@ commands = ["comment.stamp"]
 tools = ["stamp_custom"]
 evidence = ["crates/ui-egui/tests/stamps.rs::creating_placing_and_keeping_custom_stamps", "crates/automation/tests/automation.rs::stamps_through_tools", "crates/engine/src/tests.rs::explicit_image_stamps_keep_displayed_orientation_on_rotated_pages", "crates/engine/src/tests.rs::pdf_page_stamps_keep_displayed_orientation_on_rotated_pages"]
 notes = "Create custom stamp from a PDF page or an image (category and name), kept in the app's settings; placed at natural size (at most 200 pt) keeping its shape; resizable (appearance redrawn from /PCPicture); delete from the palette. Natural-size and explicit-rectangle images, and PDF-page stamps, read upright on a rotated page (#1398)"
+
+[[feature]]
+id = "comment.workpaper-marking"
+title = "Persistent typed workpaper marks"
+area = "E"
+tier = "P2"
+milestone = "M5"
+status = "shipped"
+commands = ["comment.mark"]
+tools = ["mark_add"]
+evidence = ["crates/ui-egui/tests/work_marks.rs::repeated_marks_are_comments_and_do_not_reopen_the_panel", "crates/ui-egui/tests/work_marks.rs::mark_entry_controls_and_rendered_preview", "crates/ui-egui/tests/work_marks.rs::generated_marks_remain_upright_and_visible_after_save_on_rotated_pages", "crates/ui-egui/tests/work_marks.rs::mark_fonts_and_filled_tick_survive_save_and_render", "crates/automation/tests/work_marks.rs::mark_tool_round_trips_comments_without_becoming_fill_and_sign"]
+notes = "McMurryPDF extension: a persistent toolbar tool places locally generated, portable Stamp comments from a short typed reference. . maps to a vector dot, / to a vector check; ordinary text stays literal. Remembers value, PDF font, size and color; changing the value affects new placements only. Font picker shares the size popout (12 standard PDF faces); dots and the filled tapered check are font-independent. Separate undo steps, normal comment metadata, no forced Comments-panel opening, and no Fill & Sign auto-flattening. Western single-line text up to 32 characters, sizes 6–36 pt."
+
+[[feature]]
+id = "comment.personal-signoff"
+title = "Personal initials and placement-date sign-offs"
+area = "E"
+tier = "P2"
+milestone = "M5"
+status = "shipped"
+commands = ["sign.off", "sign.off.change", "sign.off.capture"]
+tools = ["signoff_add", "signoff_capture"]
+evidence = ["crates/ui-egui/tests/signoff.rs::crop_confirm_signoff_and_replace_preserve_old_dates_and_initials", "crates/ui-egui/tests/signoff.rs::empty_invalid_and_outside_crops_are_refused_without_replacing_initials", "crates/ui-egui/tests/signoff.rs::capture_from_drawn_initials_dismisses_the_edit_dialog", "crates/ui-egui/tests/signoff.rs::captured_initials_are_available_to_new_windows_before_window_settings_are_saved", "crates/automation/tests/signoff.rs::capture_and_signoff_are_portable_dated_and_root_confined"]
+notes = "McMurryPDF extension: saved per-user initials from Type/Draw/Image/Capture. Capture dismisses the edit dialog before cropping the current PDF page; no standalone crop toolbar shortcut. Preview and Apply confirm a replacement; Cancel preserves the saved value. Flat-paper capture removes near-white, trims margins and preserves thick strokes, requires copying permission and is capped at four megapixels. One portable Stamp comment combines initials and the local m/d/yy date at placement; changing initials or date leaves previous appearances unchanged. Repeated placement, undo and persistent initials; native Apply saves immediately in shared user assets and stale window preferences cannot overwrite newer initials; closed Comments panel stays closed. Does not execute a custom stamp script. Photo cleanup is available through Scan; PDF capture removes near-white rather than uneven dark paper."
 
 [[feature]]
 id = "comment.stamps-manage"
@@ -9792,8 +9828,8 @@ milestone = "M14"
 status = "partial"
 commands = []
 tools = []
-evidence = ["crates/ui-egui/tests/view.rs::default_page_display_is_used_for_new_documents", "crates/ui-egui/tests/view.rs::default_zoom_is_used_for_new_documents", "crates/ui-egui/tests/view.rs::preferences_set_the_default_zoom"]
-notes = "Preferences ▸ Documents and view: Default page display and Default zoom (Fit to width, Zoom to page level or a percentage) for every new tab; a PDF that asks for a layout or zoom gets it. Missing: Acrobat's resolution, rendering and page-content options"
+evidence = ["crates/ui-egui/tests/view.rs::default_page_display_is_used_for_new_documents", "crates/ui-egui/tests/view.rs::default_zoom_is_used_for_new_documents", "crates/ui-egui/tests/view.rs::preferences_set_the_default_zoom", "crates/ui-egui/tests/view.rs::preferred_opening_zoom_overrides_embedded_zoom_unless_default_is_selected"]
+notes = "Preferences ▸ Documents and view: Default page display and Default zoom (Fit to Width, Fit to Page, Default) for new documents. Explicit fit choices override embedded opening zoom; Default honors it and falls back to width if absent. Existing percentage options remain supported. Opening page/layout are independent. Preferences save when dismissed so new windows receive accepted choices. Missing: Acrobat's resolution, rendering and page-content options"
 
 [[feature]]
 id = "misc.prefs-documents"

@@ -97,7 +97,10 @@ impl Graphic {
 
     /// Check the graphic and draw it into `area` (`[x, y, w, h]` in the appearance's space):
     /// content operators, and the image XObject added to `doc` that they name `/Im1`.
-    pub(crate) fn draw(&self, doc: &mut Document, area: [f64; 4]) -> Result<(String, Option<ObjRef>), SignError> {
+    pub fn draw(&self, doc: &mut Document, area: [f64; 4]) -> Result<(String, Option<ObjRef>), SignError> {
+        if area.iter().any(|v| !v.is_finite()) || area[2] <= 0.0 || area[3] <= 0.0 || area.iter().any(|v| v.abs() > 14_400.0) {
+            return Err(bad("needs a finite, positive drawing area within PDF page limits"));
+        }
         self.check()?;
         let n = crate::pdf::fmt;
         match self {

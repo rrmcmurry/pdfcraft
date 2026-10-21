@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="McMurryPDF Explorer Thumbnails" Manufacturer="McMurry Software" Version="$(var.ShellVersion)"
+           UpgradeCode="2F777259-804C-4C01-AC2B-110D47000F1B" Scope="perMachine" Compressed="yes">
+    <MajorUpgrade DowngradeErrorMessage="A newer McMurryPDF thumbnail component is installed." Schedule="afterInstallInitialize" AllowSameVersionUpgrades="yes" />
+    <MediaTemplate EmbedCab="yes" />
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="CompanyDir" Name="McMurry Software">
+        <Directory Id="ShellDir" Name="McMurryPDF Shell">
+          <Directory Id="VersionDir" Name="$(var.ShellVersion)">
+            <Component Id="ProviderFile" Guid="*">
+              <File Source="$(var.Payload)\McMurryPDFThumbnail.dll" KeyPath="yes" />
+            </Component>
+            <Component Id="RendererFile" Guid="*">
+              <File Source="$(var.Payload)\McMurryPDF-cli.exe" KeyPath="yes" />
+            </Component>
+            <Component Id="ShellIcon" Guid="*">
+              <File Source="$(var.Payload)\mcmurrypdf.ico" KeyPath="yes" />
+            </Component>
+            <Component Id="ShellLicenseMIT" Guid="*"><File Source="$(var.Payload)\LICENSE-MIT" KeyPath="yes" /></Component>
+            <Component Id="ShellLicenseApache" Guid="*"><File Source="$(var.Payload)\LICENSE-APACHE" KeyPath="yes" /></Component>
+            <Component Id="ShellNotice" Guid="*"><File Source="$(var.Payload)\NOTICE" KeyPath="yes" /></Component>
+            <Component Id="ShellAttribution" Guid="*"><File Source="$(var.Payload)\ATTRIBUTION.md" KeyPath="yes" /></Component>
+          </Directory>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+    <DirectoryRef Id="VersionDir">
+      <Component Id="ComRegistration" Guid="2F0D2BE7-304C-4113-9DB9-ED373F1920BD">
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{8BE52C39-5E5E-4D32-A663-D1BEB26F65AD}" Value="McMurryPDF Thumbnail Provider" Type="string" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{8BE52C39-5E5E-4D32-A663-D1BEB26F65AD}" Name="AppID" Value="{8BE52C39-5E5E-4D32-A663-D1BEB26F65AD}" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{8BE52C39-5E5E-4D32-A663-D1BEB26F65AD}\InprocServer32" Value="[VersionDir]McMurryPDFThumbnail.dll" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\CLSID\{8BE52C39-5E5E-4D32-A663-D1BEB26F65AD}\InprocServer32" Name="ThreadingModel" Value="Apartment" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\AppID\{8BE52C39-5E5E-4D32-A663-D1BEB26F65AD}" Name="DllSurrogate" Value="" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\.pdf\shellex\{E357FCCD-A995-4576-B01F-234630154E96}" Value="{8BE52C39-5E5E-4D32-A663-D1BEB26F65AD}" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\Classes\SystemFileAssociations\.pdf\shellex\{E357FCCD-A995-4576-B01F-234630154E96}" Value="{8BE52C39-5E5E-4D32-A663-D1BEB26F65AD}" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\McMurrySoftware\McMurryPDF" Name="ShellVersion" Value="$(var.ShellVersion)" Type="string" />
+        <RegistryValue Root="HKLM" Key="Software\McMurrySoftware\McMurryPDF" Name="ShellRendererPath" Value="[VersionDir]McMurryPDF-cli.exe" Type="string" />
+      </Component>
+    </DirectoryRef>
+    <Feature Id="Thumbnails" Title="Explorer PDF thumbnails" Level="1">
+      <ComponentRef Id="ProviderFile" /><ComponentRef Id="RendererFile" /><ComponentRef Id="ShellIcon" />
+      <ComponentRef Id="ShellLicenseMIT" /><ComponentRef Id="ShellLicenseApache" /><ComponentRef Id="ShellNotice" />
+      <ComponentRef Id="ShellAttribution" /><ComponentRef Id="ComRegistration" />
+    </Feature>
+  </Package>
+</Wix>

@@ -111,8 +111,7 @@ fn dragging_over_text_with_the_highlighter_highlights_it() {
     assert_eq!((c[0].subtype.as_str(), c[0].author.as_deref(), c[0].quads.len()), ("Highlight", Some("Tester"), 1));
     assert_eq!(h.state().views[0].comments.selected, Some((0, 0)), "the new comment is selected");
     assert_eq!(h.state().quick_tool, QuickTool::Comment(pdfcraft_ui_egui::comments::CommentTool::Highlight), "the highlighter stays on");
-    // The Comments panel opened with the tool and lists it.
-    h.get_by_label_contains("Comments");
+    assert_eq!(h.state().right, None, "highlighting leaves the tray closed");
     assert_eq!(h.state().session.get(h.state().views[0].id).unwrap().can_undo(), Some("Add highlight"));
 }
 
@@ -1037,8 +1036,7 @@ fn the_opacity_set_for_a_tool_goes_into_its_new_comments() {
     h.get_by_label("Opacity");
 }
 
-/// #225: comment tools open the Comments panel until the user closes it; then it stays closed,
-/// across restarts, until they open it again.
+/// Annotation tools never open a tray; only an explicit panel choice does.
 #[test]
 fn a_closed_comments_panel_stays_closed_when_picking_comment_tools() {
     use pdfcraft_ui_egui::RightPanel;
@@ -1046,7 +1044,10 @@ fn a_closed_comments_panel_stays_closed_when_picking_comment_tools() {
     assert_eq!(h.state().right, None);
     assert!(h.state_mut().execute("comment.highlight"));
     h.run_steps(2);
-    assert_eq!(h.state().right, Some(RightPanel::Comments), "Acrobat opens Comments with the tools");
+    assert_eq!(h.state().right, None, "picking a tool must not open Comments");
+    h.state_mut().execute("comment.list");
+    h.run_steps(2);
+    assert_eq!(h.state().right, Some(RightPanel::Comments));
     h.get_by_label("Close").click();
     h.run_steps(2);
     assert_eq!(h.state().right, None);
@@ -1061,18 +1062,48 @@ fn a_closed_comments_panel_stays_closed_when_picking_comment_tools() {
     }
     let mut again = PdfCraftApp::new();
     again.restore(&h.state().persist());
-    assert!(again.comments_panel_closed, "the choice survives a restart");
-    // Opening it again from the rail lets the tools open it once more.
+    assert_eq!(again.right, None, "restart does not open Comments");
+    // Opening it manually still works.
     h.get_by_label("Comments").click();
     h.run_steps(2);
     assert_eq!(h.state().right, Some(RightPanel::Comments));
-    assert!(!h.state().comments_panel_closed);
     // What the rail and View menu call; "Bookmarks" labels two controls on screen.
     h.state_mut().choose_right_panel(Some(RightPanel::Bookmarks));
     h.state_mut().choose_right_panel(None);
     h.run_steps(2);
-    assert!(!h.state().comments_panel_closed, "switching to and closing another panel isn't closing Comments");
     assert!(h.state_mut().execute("comment.strikeout"));
     h.run_steps(2);
-    assert_eq!(h.state().right, Some(RightPanel::Comments));
+    assert_eq!(h.state().right, None);
+    // All default commenting tools respect closed trays, even in a fresh profile.
+    h.state_mut().left_open = false;
+    for tool in pdfcraft_ui_egui::comments::ALL {
+        assert!(h.state_mut().execute(tool.command()));
+        h.run_steps(2);
+        assert_eq!(h.state().right, None, "{} opened Comments", tool.command());
+        assert!(!h.state().left_open);
+    }
+    for tool in ["edit.edit_text", "edit.text", "redact.mark", "form.add.text", "measure.distance"] {
+        assert!(h.state_mut().execute(tool), "{tool}");
+        h.run_steps(2);
+        assert_eq!(h.state().right, None, "{tool}");
+        assert!(!h.state().left_open, "{tool}");
+    }
+    // Real page gestures create annotations without opening a tray.
+    for tool in ["comment.line", "comment.square", "comment.circle", "comment.ink"] {
+        h.state_mut().execute(tool);
+        h.run_steps(2);
+        let before = comments(&h).len();
+        drag_pt(&mut h, (40.0, 80.0), (120.0, 110.0));
+        assert_eq!(comments(&h).len(), before + 1, "{tool}");
+        assert_eq!(h.state().right, None, "{tool}");
+        assert!(!h.state().left_open);
+    }
+    // An explicitly open tray stays open and tools don't replace another tray.
+    for panel in [RightPanel::Comments, RightPanel::Bookmarks] {
+        h.state_mut().choose_right_panel(Some(panel));
+        h.state_mut().execute("comment.line");
+        h.run_steps(2);
+        drag_pt(&mut h, (50.0, 60.0), (130.0, 90.0));
+        assert_eq!(h.state().right, Some(panel));
+    }
 }
